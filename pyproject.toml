@@ -1,0 +1,25 @@
+[tool.poetry]
+name = "assembler-tools"
+version = "0.0.0"
+description = "Assembler Tools is a Python automation tool for genome assembly comparison and curation. It can be configured easily to work with different assemblers and features a web-based UI for easy comparison of assembly graphs and allows users to select the best assembly or create a hybrid one. The final output is a curated assembly compatible with NCBI PGAP standards."
+authors = ["MrTomRod <roder.thomas@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fire = "^0.6.0"
+pandas = "^2.2.2"
+scipy = "^1.13.1"
+gendiscalpy = "^0.0.2"
+plotly = "^5.22.0"
+gfapy = "^1.2.3"
+jinja2 = "^3.1.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+assembler-tools = "assembler_tools.main:main"
