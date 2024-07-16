@@ -1,6 +1,7 @@
 # Todo
 
 - Coverage
+- gfapy issue: https://github.com/ggonnella/gfapy/issues/31
 - Autosolve easy cases
 - Dotplot: ani-matrix -> dotplot; whole assembly dotplot ("I forgot to mention also the duplicated/chimeric
   pseudo-plasmids/contigs. They will clearly show up in dotplot. Actually with gepard I was doing all-against-all

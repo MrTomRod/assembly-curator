@@ -56,4 +56,4 @@ class FlyeImporter(AssemblyImporter):
             if (contig.topology == 'circular') != info_circular:
                 logging.warning(f'Warning: {contig_name=} {contig.topology=} != {df.loc[contig_name, 'circ.']}')
             # Append coverage information
-            contig.coverage = df.loc[contig_name, 'cov.']
+            contig.coverage = int(df.loc[contig_name, 'cov.'])

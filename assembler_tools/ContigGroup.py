@@ -27,15 +27,8 @@ class ContigGroup:
 
     @property
     def id(self):
-        return self.contigs[0].original_id
-
-    @property
-    def id_nice(self):
-        n_contigs = len(self.contigs)
-        first_contig_id = self.contigs[0].original_id
-        if n_contigs == 1:
-            return first_contig_id
-        return f"{first_contig_id}+{n_contigs - 1}"
+        additional_contigs = '' if len(self.contigs) == 1 else f'+{len(self.contigs) - 1}'
+        return f'{self.assembler}#{self.contigs[0].original_id}{additional_contigs}'
 
     @property
     def assembler(self):
@@ -44,8 +37,21 @@ class ContigGroup:
     def sort(self):
         self.contigs = sorted(self.contigs, key=lambda contig: len(contig), reverse=True)
 
-    def gc(self) -> int:
-        return sum([contig.gc for contig in self.contigs])
+    @property
+    def gc_abs(self) -> int:
+        return sum([contig.gc_abs for contig in self.contigs])
 
-    def gc_content(self) -> float:
-        return self.gc() / len(self)
+    @property
+    def gc_rel(self) -> float:
+        return self.gc_abs / len(self)
+
+    def to_json(self, sequence: bool = False):
+        res = {
+            'id': self.id,
+            'len': len(self),
+            'gc_abs': self.gc_abs,
+            'gc_rel': self.gc_rel,
+            'assembler': self.assembler,
+            'contigs': {contig.id: contig.to_json(sequence, self.id) for contig in self.contigs}
+        }
+        return res

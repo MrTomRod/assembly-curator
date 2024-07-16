@@ -1,3 +1,4 @@
+import json
 import os
 import shutil
 import logging
@@ -68,6 +69,9 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
             output_file=f'{samples_dir}/gendiscal_distance_matrix.tsv'
         )
 
+        with open(f"{sample_dir}/assemblies.json", 'w') as f:
+            json.dump({assembly.assembler: assembly.to_json() for assembly in assemblies}, f, indent=2)
+
         template_assemblies.stream(
             messages=messages,
             sample=sample,
@@ -75,10 +79,22 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
             ani_html=ani_html,
         ).dump(f"{sample_dir}/assemblies.html")
 
-        # Add graphgenomeviewer.js
+        # Add dotplot.js
         shutil.copy(
-            os.path.join(os.path.dirname(__file__), 'templates', 'graphgenomeviewer.js'),
-            f"{samples_dir}/graphgenomeviewer.js"
+            os.path.join('/home/thomas/PycharmProjects/dotplot.js/dotplot.js'),
+            f"{samples_dir}/dotplot.js"
+        )
+
+        # Add assemblies.css
+        shutil.copy(
+            os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.css'),
+            f"{samples_dir}/assemblies.css"
+        )
+
+        # Add assemblies.js
+        shutil.copy(
+            os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.js'),
+            f"{samples_dir}/assemblies.js"
         )
 
         # final_assembly = curate_assemblies(assemblies)

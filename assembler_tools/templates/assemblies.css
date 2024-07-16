@@ -1,0 +1,22 @@
+table img, table svg {
+    width: 100%;
+    height: 100%;
+}
+
+#ani-clustermap-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#ani-clustermap-container .contig-group.selected {
+    stroke: red !important;
+}
+
+div.contig-group.selected {
+    background-color: #f00;
+}
+
+.translate-middle-custom {
+    transform: translate(calc(-100% + 10px), -50%) !important;
+}

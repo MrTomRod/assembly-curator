@@ -8,14 +8,16 @@ from .ContigGroup import ContigGroup
 class Assembly:
     assembler: str
     assembly_dir: str
+    _sample_dir: str
     contig_groups: [ContigGroup]
     plot: str = None
     gfa: str = None
     busco: {} = None
 
-    def __init__(self, assembler: str, assembly_dir: str, contig_groups: [ContigGroup] = None):
+    def __init__(self, assembler: str, assembly_dir: str, sample_dir: str, contig_groups: [ContigGroup] = None):
         self.assembler = assembler
         self.assembly_dir = assembly_dir
+        self._sample_dir = sample_dir
         self.contig_groups = contig_groups if contig_groups else []
 
     def __len__(self):
@@ -51,16 +53,28 @@ class Assembly:
         print(f'#### --- end --- ####\n')
 
     def gc(self) -> int:
-        return sum([contig.gc() for contig in self.contig_groups])
+        return sum([contig.gc_abs for contig in self.contig_groups])
 
     def gc_content(self) -> float:
         return self.gc() / len(self)
 
-    def plot_svg(self, assembly_dir: str):
+    def plot_svg(self):
         if self.plot is None:
             return None
         try:
-            with open(f'{assembly_dir}/{self.plot}') as f:
+            with open(f'{self._sample_dir}/{self.assembly_dir}/{self.plot}') as f:
                 return f.read()
         except Exception as e:
             return f'Error: {e}'
+
+    def to_json(self, sequence: bool = False):
+        return {
+            'assembler': self.assembler,
+            'assembly_dir': self.assembly_dir,
+            'sample_dir': self._sample_dir,
+            'len': len(self),
+            'plot': self.plot,
+            'gfa': self.gfa,
+            'busco': self.busco,
+            'contig_groups': {group.id: group.to_json(sequence) for group in self.contig_groups}
+        }

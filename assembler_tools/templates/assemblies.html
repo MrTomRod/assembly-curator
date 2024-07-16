@@ -5,50 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ sample }}</title>
 
+    <script>
+        document.documentElement.setAttribute('data-bs-theme', (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
+    </script>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
             crossorigin="anonymous"></script>
-    <!--<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>-->
-    <!--<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js"
+            integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r"
+            crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"
+            integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy"
+            crossorigin="anonymous"></script>
 
-    <script>
-        document.documentElement.setAttribute('data-bs-theme', (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
-    </script>
-
-    <script type="module" crossorigin src="../graphgenomeviewer.js"></script>
-
-    <style>
-        table {
-            /*width: 100%;*/
-            /*border-collapse: collapse;*/
-        }
-
-        th, td {
-            /*border: 1px solid black;*/
-            /*padding: 8px;*/
-            /*text-align: left;*/
-        }
-
-        th {
-            /*background-color: #f2f2f2;*/
-        }
-
-        table img, table svg {
-            width: 100%;
-        }
-
-        #ani-clustermap-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .translate-middle-custom {
-            transform: translate(calc(-100% + 10px), -50%) !important;
-        }
-    </style>
+    <link href="../assemblies.css" rel="stylesheet">
+    <script src="../assemblies.js"></script>
+    <script type="module" crossorigin src="../dotplot.js"></script>
 </head>
 
 <body>
@@ -106,76 +81,57 @@
         {% endfor %}
     </tr>
 
-    <script>
-        function toggleAllContigs(assemblyId) {
-            console.log(assemblyId)
-            // Determine the state of the "select all" checkbox
-            const isChecked = document.getElementById(`cg-all-${assemblyId}`).checked;
-
-            // Select all contig checkboxes related to the assembly
-            const contigCheckboxes = document.querySelectorAll(`input[data-assembly='${assemblyId}']`);
-
-            // Set the checked state of each contig checkbox based on the "select all" checkbox
-            contigCheckboxes.forEach(checkbox => {
-                checkbox.checked = isChecked;
-            });
-        }
-    </script>
-
     <tr>
         <th scope="row">Contigs</th>
         {% for assembly in assemblies %}
         <td>
             <div class="form-check">
-                <input class="form-check-input" type="checkbox" value="" id="cg-all-{{ assembly.assembler }}" onclick="toggleAllContigs('{{ assembly.assembler }}')">
+                <input class="form-check-input" type="checkbox" value="" id="cg-all-{{ assembly.assembler }}"
+                       onclick="toggleAllContigGroups('{{ assembly.assembler }}')">
                 <label class="form-check-label" for="cg-all-{{ assembly.assembler }}">
                     Select all
                 </label>
             </div>
 
-            {% for contig_group in assembly.contig_groups %}
-
-            <div class="form-check">
-                <input class="form-check-input" type="checkbox" value="" id="cg-{{ contig_group.id }}" data-assembly="{{ assembly.assembler }}">
-                <label class="form-check-label" for="cg-{{ contig_group.id }}">
-
-                    {% if contig_group.contigs.__len__() == 1 %}
-                    {% for contig in contig_group.contigs %}
-                    <div class="btn btn-primary position-relative">
-                        {{ contig.original_id }} ({{ contig.len_human() }})
-                        <span class="position-absolute top-0 start-100 translate-middle-custom">
+            <div class="assembly" data-assembly="{{ assembly.assembler }}">
+                {% for contig_group in assembly.contig_groups %}
+                {% if contig_group.contigs.__len__() == 1 %}
+                {% for contig in contig_group.contigs %}
+                <div class="contig-group btn btn-primary position-relative"
+                     data-cg="{{ contig_group.id }}" onclick="toggleContigGroup('{{ contig_group.id }}')">
+                    {{ contig.original_id }} ({{ contig.len_human() }})
+                    <span class="position-absolute top-0 start-100 translate-middle-custom">
                         <div class="d-flex">
                           {{ contig.topology_badge|safe }}
                           {% if contig.has_coverage %}{{ contig.coverage_badge|safe }}{% endif %}
                         </div>
                       </span>
+                </div>
+                {% endfor %}
+                {% else %}
+                <div class="contig-group card" data-cg="{{ contig_group.id }}" onclick="toggleContigGroup('{{ contig_group.id }}')"
+                     style="width: 18rem;">
+                    <div class="card-header">
+                        Group: {{ contig_group.id }} ({{contig_group.len_human()}})
                     </div>
-                    {% endfor %}
-                    {% else %}
-                    <div class="card" style="width: 18rem;">
-                        <div class="card-header">
-                            Group: {{ contig_group.id }} ({{contig_group.len_human()}})
-                        </div>
-                        <ul class="list-group list-group-flush">
-                            <li class="list-group-item">
-                                {% for contig in contig_group.contigs %}
-                                <div class="btn btn-primary position-relative">
-                                    {{ contig.original_id }} ({{ contig.len_human() }})
-                                    <span class="position-absolute top-0 start-100 translate-middle-custom">
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item">
+                            {% for contig in contig_group.contigs %}
+                            <div class="btn btn-primary position-relative">
+                                {{ contig.original_id }} ({{ contig.len_human() }})
+                                <span class="position-absolute top-0 start-100 translate-middle-custom">
                                     <div class="d-flex">
                                       {{ contig.topology_badge|safe }}
                                       {% if contig.has_coverage %}{{ contig.coverage_badge|safe }}{% endif %}
                                     </div>
                                   </span>
-                                </div>
-                                {% endfor %}
-                            </li>
-                        </ul>
-                    </div>
+                            </div>
+                            {% endfor %}
+                        </li>
+                    </ul>
                     {% endif %}
 
-
-                </label>
+                </div>
             </div>
 
             {% endfor %}
@@ -185,73 +141,28 @@
     <tr>
 
     <tr>
+        <style>
+            .gfaviz-container svg text {
+                stroke-width: 1px;
+                stroke: white;
+                fill: black;
+                paint-order: stroke;
+                font-weight: 800;
+            }
+
+            .gfaviz-container svg text.selected {
+                stroke: red;
+            }
+        </style>
         <th scope="row">Plot</th>
         {% for assembly in assemblies %}
-        <td><img src="{{ assembly.assembly_dir }}/{{ assembly.plot }}" alt="GC content plot"></td>
-        {#
-        <td>{{ assembly.plot_svg()|safe }}</td>
-        #}
+        <!--        <td><img src="{{ assembly.assembly_dir }}/{{ assembly.plot }}" alt="GC content plot"></td>-->
+        <td>
+            <div class="gfaviz-container" data-assembly="{{ assembly.assembler }}">{{ assembly.plot_svg()|safe }}</div>
+        </td>
         {% endfor %}
     </tr>
-<!--    <tr>-->
-<!--        <th scope="row">Assembly graph (gfa)</th>-->
-<!--        {% for assembly in assemblies %}-->
-<!--        <td>-->
-<!--            <div id="gfa-{{ assembly.assembler }}"></div>-->
-<!--            <script>-->
-<!--                document.addEventListener("DOMContentLoaded", function () {-->
-<!--                    window.graphGenomeViewer({-->
-<!--                        element: document.getElementById("gfa-{{ assembly.assembler }}"),-->
-<!--                        url: "{{ assembly.assembly_dir }}/{{ assembly.gfa }}",-->
-<!--                        data: undefined,-->
-<!--                        drawPaths: true,-->
-<!--                        drawLabels: true,-->
-<!--                        colorScheme: "Rainbow",-->
-<!--                        width: 500,-->
-<!--                        height: 500,-->
-<!--                        chunkSize: 100000,-->
-<!--                        linkSteps: 10,-->
-<!--                        sequenceThickness: undefined,-->
-<!--                        linkThickness: undefined,-->
-<!--                        theta: undefined,-->
-<!--                        strengthCenter: undefined,-->
-<!--                        onFeatureClick: console.log,-->
-<!--                    })-->
-<!--                })-->
-<!--            </script>-->
-<!--        </td>-->
-<!--        {#-->
-<!--        <td>{{ assembly.plot_svg()|safe }}</td>-->
-<!--        #}-->
-<!--        {% endfor %}-->
-<!--    </tr>-->
 
 </table>
-
-<!--<script>-->
-<!--    // when the document is ready-->
-<!--    document.addEventListener('DOMContentLoaded', function () {-->
-<!--        // get the plotly object-->
-<!--        const aniClustermap = document.getElementById('ani-clustermap')-->
-<!--        // add a click event listener-->
-<!--        aniClustermap.on('plotly_click', function (data) {-->
-<!--            // get the data of the clicked point-->
-<!--            const clickData = data.points[0]-->
-<!--            // find out which contigs were selected-->
-<!--            const [xPos, yPos] = clickData.pointIndex-->
-<!--            const [xTicktext, yTicktext] = [clickData.xaxis.ticktext, clickData.yaxis.ticktext]-->
-<!--            const [xSelected, ySelected] = [xTicktext[xPos], yTicktext[yPos]]-->
-<!--            console.log('Click on:', xSelected, ySelected)-->
-
-<!--            if (xSelected === ySelected) {-->
-<!--                console.log('Select this contig:', xSelected)-->
-<!--                // if the clicked point is on the diagonal, highlight the contig-->
-<!--                // Todo: highlight the contig-->
-<!--            }-->
-<!--        })-->
-<!--    })-->
-<!--</script>-->
-
-
 </body>
 </html>

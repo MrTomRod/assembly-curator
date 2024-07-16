@@ -1,5 +1,9 @@
+from io import StringIO
 from tempfile import TemporaryDirectory
+import numpy as np
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
 from gendiscalpy import GenDisCal
@@ -12,11 +16,29 @@ gdc = GenDisCal()
 
 def ani_clustermap(assemblies: [Assembly], output_file: str) -> str:
     try:
-        df = calculate_distance_matrix(assemblies, output_file)
+        distance_matrix = calculate_distance_matrix(assemblies, output_file)
+        length_matrix = calculate_length_matrix(distance_matrix, assemblies)
+        html = plot_clustermap(distance_matrix, annot=length_matrix, annot_kws={"fontsize": 6}, fmt='', )
     except MinorAssemblyException as e:
         return f'<p class="error">{e}</p>'
-    html = plot_clustermap(df)
     return html
+
+
+def calculate_length_matrix(distance_matrix: pd.DataFrame, assemblies: [Assembly]):
+    # Create a dataframe with same col/rows as distance_matrix
+    # for each contig group (i, j), store the len(i) / len(j), i.e. the ratio of the lengths
+    contig_group_to_len = {cg.id: len(cg) for assembly in assemblies for cg in assembly.contig_groups}
+
+    length_matrix = pd.DataFrame(index=distance_matrix.index, columns=distance_matrix.columns)
+    for i, assembly_i in enumerate(distance_matrix.index):
+        for j, assembly_j in enumerate(distance_matrix.columns):
+            if distance_matrix.iloc[i, j] < .5:
+                frac = contig_group_to_len[assembly_i] / contig_group_to_len[assembly_j]
+                length_matrix.iloc[i, j] = f'{frac:.2g}'
+            else:
+                length_matrix.iloc[i, j] = ''
+
+    return length_matrix
 
 
 def calculate_distance_matrix(assemblies: [Assembly], output_file: str):
@@ -25,11 +47,11 @@ def calculate_distance_matrix(assemblies: [Assembly], output_file: str):
     tmpdir = TemporaryDirectory()
     for assembly in assemblies:
         for contig_group in assembly.contig_groups:
-            fasta_file = f'{tmpdir.name}/{assembly.assembler}#{contig_group.id}'
+            fasta_file = f'{tmpdir.name}/{contig_group.id}'
             fasta_files.append(fasta_file)
             with open(fasta_file, 'w') as fasta:
                 for contig in contig_group.contigs:
-                    fasta.write(f'>{assembly.assembler}#{contig.original_id}\n{contig.sequence}\n')
+                    fasta.write(f'>{contig_group.id}\n{contig.sequence}\n')
 
     # Raise exception if there is no or only one fasta file
     if len(fasta_files) == 0:
@@ -49,7 +71,36 @@ def calculate_distance_matrix(assemblies: [Assembly], output_file: str):
     return df
 
 
-def plot_clustermap(distance_matrix: pd.DataFrame):
+def plot_clustermap_with_seaborn(distance_matrix: pd.DataFrame, **kwargs) -> str:
+    plt.rcParams['svg.fonttype'] = 'none'
+
+    # Generate the clustermap
+    clustermap_fig = sns.clustermap(
+        distance_matrix,
+        figsize=(10, 10),
+        cmap='bone_r', vmin=0, vmax=1,
+        linewidths=5,
+        **kwargs
+    )
+
+    svg_buffer = StringIO()
+    clustermap_fig.savefig(svg_buffer, format='svg')
+    svg_content = svg_buffer.getvalue()
+    svg_buffer.close()
+
+    # Convert to JSON, add to SVG
+    json_data = distance_matrix.to_json()  # Reordering not necessary because json uses keys, not order
+    svg_content = svg_content.rsplit('</svg>', 1)
+    assert svg_content[1].strip() == '', f"Unexpected content after closing svg tag: {svg_content[1]}"
+    svg_content = f'{svg_content[0]}\n<script type="application/json" id="ani-matrix-data">{json_data}</script></svg>'
+
+    return svg_content
+
+
+plot_clustermap = plot_clustermap_with_seaborn
+
+
+def plot_clustermap_plotly(distance_matrix: pd.DataFrame) -> str:
     # Initialize figure by creating upper dendrogram
     fig = ff.create_dendrogram(distance_matrix, orientation='bottom', labels=distance_matrix.columns)
     for i in range(len(fig['data'])):
@@ -76,7 +127,9 @@ def plot_clustermap(distance_matrix: pd.DataFrame):
         y=dendro_leaves,
         z=heat_data,
         colorscale='Blues',
-        showscale=False
+        showscale=False,
+        customdata=np.indices(heat_data.shape),  # Add custom data for each cell
+        hoverinfo='none'  # Disable hover info
     )
 
     # Align the heatmap and the dendrogram
@@ -136,25 +189,3 @@ def plot_clustermap(distance_matrix: pd.DataFrame):
     # exit(0)
     html = fig.to_html(full_html=False, div_id='ani-clustermap')
     return html
-
-# def plot_heatmap(distance_matrix: pd.DataFrame):
-#     # Plot heatmap using plotly
-#     fig = go.Figure(data=go.Heatmap(
-#         z=distance_matrix.values,
-#         x=distance_matrix.columns,
-#         y=distance_matrix.columns,
-#         colorscale='Viridis',
-#         showscale=False
-#     ))
-#     fig.update_layout(width=800, height=800)
-#     fig.update_layout(yaxis_side='right')  # Move labels to the right
-#     fig.show()
-# def plot_dendrogram(distance_matrix: pd.DataFrame):
-#     # Plot dendrogram heatmap using plotly
-#     fig = ff.create_dendrogram(
-#         X=distance_matrix.values,
-#         labels=distance_matrix.columns,
-#         orientation='left',
-#     )
-#     fig.update_layout(width=800, height=800)
-#     fig.show()

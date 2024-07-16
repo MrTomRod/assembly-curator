@@ -86,7 +86,7 @@ class AssemblyImporter(ABC):
         return groups
 
     def create_assembly(self, groups: [[str]], contigs: {str: Contig}) -> Assembly:
-        assembly = Assembly(assembler=self.assembler, assembly_dir=self.assembly_dir)
+        assembly = Assembly(assembler=self.assembler, assembly_dir=self.assembly_dir, sample_dir=self._sample_dir)
         for group in groups:
             contig_group = ContigGroup()
             for segment in group:

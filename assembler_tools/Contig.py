@@ -32,10 +32,14 @@ class Contig:
             f'Error in {self}: Invalid characters in sequence: {set(self.sequence)}'
         self.assembler = assembler
 
-    def header(self, prefix: str, contig_id: int, plasmid_name: str = None) -> str:
+    @property
+    def id(self):
+        return f'{self.assembler}@{self.original_id}'
+
+    def header(self, contig_name: str, plasmid_name: str = None) -> str:
         self.sanity_check()
 
-        header = f'>{prefix}{contig_id} [length={len(self)}]'
+        header = f'>{contig_name} [length={len(self)}]'
         if self.topology == 'circular':
             header += f' [topology=circular] [completeness=complete]'
         elif self.topology == 'linear':
@@ -77,11 +81,12 @@ class Contig:
             assert self.location in ['chromosome', 'plasmid'], f'Error in {self}: Invalid location: {self.location}'
 
     @cached_property
-    def gc(self) -> int:
+    def gc_abs(self) -> int:
         return self.sequence.count('G') + self.sequence.count('C')
 
-    def gc_content(self) -> float:
-        return self.gc / len(self)
+    @property
+    def gc_rel(self) -> float:
+        return self.gc_abs / len(self)
 
     @property
     def topology_badge(self):
@@ -114,3 +119,21 @@ class Contig:
             return template.format(coverage=f'{coverage}x', color='warning')
         else:
             return template.format(coverage=f'{coverage}x', color='danger')
+
+    def to_json(self, sequence: bool = False, contig_group: str = None):
+        res = {
+            'id': self.id,
+            'original_id': self.original_id,
+            'assembler': self.assembler,
+            'len': len(self),
+            'gc': self.gc_abs,
+            'gc_content': self.gc_rel,
+            'coverage': self.coverage,
+            'topology': self.topology,
+            'location': self.location,
+            'additional_info': self.additional_info,
+            'test-header': self.header('test_scf0', plasmid_name='test-plasmid')
+        }
+        if sequence: res['sequence'] = self.sequence
+        if contig_group: res['contig_group'] = contig_group
+        return res
