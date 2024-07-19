@@ -6,25 +6,26 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
-from gendiscalpy import GenDisCal
+import pyskani
 
 from assembler_tools.utils import AssemblyFailedException, MinorAssemblyException
 from assembler_tools.Assembly import Assembly
 
-gdc = GenDisCal()
 
-
-def ani_clustermap(assemblies: [Assembly], output_file: str) -> str:
+def ani_clustermap(assemblies: [Assembly], output_file: str, cutoff: float = .9) -> str:
     try:
-        distance_matrix = calculate_distance_matrix(assemblies, output_file)
-        length_matrix = calculate_length_matrix(distance_matrix, assemblies)
-        html = plot_clustermap(distance_matrix, annot=length_matrix, annot_kws={"fontsize": 6}, fmt='', )
+        distance_matrix = calculate_similarity_matrix(assemblies, output_file)
+        length_matrix = calculate_length_matrix(distance_matrix, assemblies, label_cutoff=cutoff)
+        html = plot_clustermap(distance_matrix,
+                               annot=length_matrix, annot_kws={"fontsize": 6}, fmt='',
+                               vmin=cutoff, vmax=1)
     except MinorAssemblyException as e:
         return f'<p class="error">{e}</p>'
     return html
 
 
-def calculate_length_matrix(distance_matrix: pd.DataFrame, assemblies: [Assembly]):
+def calculate_length_matrix(distance_matrix: pd.DataFrame, assemblies: [Assembly],
+                            label_cutoff: float = .9) -> pd.DataFrame:
     # Create a dataframe with same col/rows as distance_matrix
     # for each contig group (i, j), store the len(i) / len(j), i.e. the ratio of the lengths
     contig_group_to_len = {cg.id: len(cg) for assembly in assemblies for cg in assembly.contig_groups}
@@ -32,7 +33,7 @@ def calculate_length_matrix(distance_matrix: pd.DataFrame, assemblies: [Assembly
     length_matrix = pd.DataFrame(index=distance_matrix.index, columns=distance_matrix.columns)
     for i, assembly_i in enumerate(distance_matrix.index):
         for j, assembly_j in enumerate(distance_matrix.columns):
-            if distance_matrix.iloc[i, j] < .5:
+            if distance_matrix.iloc[i, j] > label_cutoff:
                 frac = contig_group_to_len[assembly_i] / contig_group_to_len[assembly_j]
                 length_matrix.iloc[i, j] = f'{frac:.2g}'
             else:
@@ -41,34 +42,27 @@ def calculate_length_matrix(distance_matrix: pd.DataFrame, assemblies: [Assembly
     return length_matrix
 
 
-def calculate_distance_matrix(assemblies: [Assembly], output_file: str):
-    # Decision: create fasta for each contig or for each contig_group?
-    fasta_files = []
-    tmpdir = TemporaryDirectory()
+def calculate_similarity_matrix(assemblies: [Assembly], output_file: str):
+    """Decision: create fasta for each contig or for each contig_group"""
+    # Create a temporary directory for the pyskani sketches
+    pyskani_db = pyskani.Database()
+
+    # Import all contig groups into the skani database
     for assembly in assemblies:
         for contig_group in assembly.contig_groups:
-            fasta_file = f'{tmpdir.name}/{contig_group.id}'
-            fasta_files.append(fasta_file)
-            with open(fasta_file, 'w') as fasta:
-                for contig in contig_group.contigs:
-                    fasta.write(f'>{contig_group.id}\n{contig.sequence}\n')
+            pyskani_db.sketch(contig_group.id, *contig_group.encode_sequences())
 
-    # Raise exception if there is no or only one fasta file
-    if len(fasta_files) == 0:
-        raise AssemblyFailedException("No contigs to compare", severity='danger')
-    elif len(fasta_files) == 1:
-        raise MinorAssemblyException("Only one contig, cannot create distance matrix")
+    contig_group_ids = [cg.id for assembly in assemblies for cg in assembly.contig_groups]
+    similarity_matrix = pd.DataFrame(index=contig_group_ids, columns=contig_group_ids, data=0.0)
 
-    # Compute pairwise distance matrix
-    try:
-        df = gdc.run(*fasta_files, distance_matrix=True)
-        df.to_csv(output_file, sep='\t')
-    except Exception as e:
-        print(f"Error: {e}")
-        raise e
+    for assembly in assemblies:
+        for contig_group in assembly.contig_groups:
+            hits = pyskani_db.query(contig_group.id, *contig_group.encode_sequences())
+            for hit in hits:
+                similarity_matrix.at[contig_group.id, hit.reference_name] = hit.identity
 
-    tmpdir.cleanup()
-    return df
+    similarity_matrix.to_csv(output_file, sep='\t')
+    return similarity_matrix
 
 
 def plot_clustermap_with_seaborn(distance_matrix: pd.DataFrame, **kwargs) -> str:
@@ -78,7 +72,7 @@ def plot_clustermap_with_seaborn(distance_matrix: pd.DataFrame, **kwargs) -> str
     clustermap_fig = sns.clustermap(
         distance_matrix,
         figsize=(10, 10),
-        cmap='bone_r', vmin=0, vmax=1,
+        cmap='mako_r',
         linewidths=5,
         **kwargs
     )

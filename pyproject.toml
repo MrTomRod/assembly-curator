@@ -11,10 +11,11 @@ python = "^3.12"
 fire = "^0.6.0"
 pandas = "^2.2.2"
 scipy = "^1.13.1"
-gendiscalpy = "^0.0.2"
 plotly = "^5.22.0"
 gfapy = "^1.2.3"
 jinja2 = "^3.1.4"
+pyskani = "^0.1.2"
+seaborn = "^0.13.2"
 
 
 [build-system]

@@ -66,7 +66,7 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
         assemblies, messages = load_assemblies(sample, sample_dir, importers)
         ani_html = ani_clustermap(
             assemblies=assemblies,
-            output_file=f'{samples_dir}/gendiscal_distance_matrix.tsv'
+            output_file=f'{samples_dir}/pyskani_similarity_matrix.tsv'
         )
 
         with open(f"{sample_dir}/assemblies.json", 'w') as f:
@@ -79,20 +79,27 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
             ani_html=ani_html,
         ).dump(f"{sample_dir}/assemblies.html")
 
+        def link(src, dst):
+            if os.path.isfile(dst):
+                os.remove(dst)
+            os.link(src, dst)
+
+        copy_or_link = link  # shutil.copy
         # Add dotplot.js
-        shutil.copy(
+        copy_or_link(
             os.path.join('/home/thomas/PycharmProjects/dotplot.js/dotplot.js'),
             f"{samples_dir}/dotplot.js"
         )
+        # use link instead
 
         # Add assemblies.css
-        shutil.copy(
+        copy_or_link(
             os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.css'),
             f"{samples_dir}/assemblies.css"
         )
 
         # Add assemblies.js
-        shutil.copy(
+        copy_or_link(
             os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.js'),
             f"{samples_dir}/assemblies.js"
         )

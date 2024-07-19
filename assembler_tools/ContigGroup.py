@@ -45,6 +45,9 @@ class ContigGroup:
     def gc_rel(self) -> float:
         return self.gc_abs / len(self)
 
+    def encode_sequences(self) -> [bytes]:
+        return [contig.sequence.encode('ascii') for contig in self.contigs]
+
     def to_json(self, sequence: bool = False):
         res = {
             'id': self.id,

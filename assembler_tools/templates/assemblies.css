@@ -20,3 +20,23 @@ div.contig-group.selected {
 .translate-middle-custom {
     transform: translate(calc(-100% + 10px), -50%) !important;
 }
+
+.popover {
+    width: 100%;
+}
+
+#dotplot-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 2000;
+}
+
+#dotplot-quit {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}

@@ -7,13 +7,30 @@
   pseudo-plasmids/contigs. They will clearly show up in dotplot. Actually with gepard I was doing all-against-all
   comparisons, not just a self")
 - DnaA centering
-  - https://github.com/sanger-pathogens/circlator/wiki/Task:-fixstart
-  - Dnaapler https://joss.theoj.org/papers/10.21105/joss.05968
+    - https://github.com/sanger-pathogens/circlator/wiki/Task:-fixstart
+    - Dnaapler https://joss.theoj.org/papers/10.21105/joss.05968
 - Detect phages and plasmids
   -Hatice: "I will send you some examples of dotplots that highlight the artefactual circularized contigs looking like
   plasmids"
+- Interactive web server: more lightweight than Django?
+    - https://www.pyweb.io/
+    - https://bottlepy.org/docs/dev/
+- Dotplot: What I have is nice, but maybe overkill?
+    - Maybe I should create a more static multiplot per cluster
+      like [trycycler](https://github.com/rrwick/Trycycler/blob/77d1be8cf786969a3821f3c04086df60b39ff781/trycycler/dotplot.py#L38)
+    - Ignore for now?
 
-See also: [Snakemake workflows for long-read bacterial genome assembly and evaluation](https://gigabytejournal.com/articles/116)
+See
+also: [Snakemake workflows for long-read bacterial genome assembly and evaluation](https://gigabytejournal.com/articles/116)
+
+# Workflow ideas
+
+Run the tool (assembler-tools load) once to create htmls for all assemblies.
+
+Then, run the tool (assembler-tools serve) to start a web server:
+ - Interactive webserver
+ - User selects contigs
+ - Click on export creates curated assemblies
 
 # Assembler Tools
 

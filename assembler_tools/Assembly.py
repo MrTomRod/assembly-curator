@@ -8,15 +8,24 @@ from .ContigGroup import ContigGroup
 class Assembly:
     assembler: str
     assembly_dir: str
+    assembly: str
     _sample_dir: str
     contig_groups: [ContigGroup]
     plot: str = None
     gfa: str = None
     busco: {} = None
 
-    def __init__(self, assembler: str, assembly_dir: str, sample_dir: str, contig_groups: [ContigGroup] = None):
+    def __init__(
+            self,
+            assembler: str,
+            assembly_dir: str,
+            assembly: str,
+            sample_dir: str,
+            contig_groups: [ContigGroup] = None
+    ):
         self.assembler = assembler
         self.assembly_dir = assembly_dir
+        self.assembly = assembly
         self._sample_dir = sample_dir
         self.contig_groups = contig_groups if contig_groups else []
 
@@ -71,6 +80,7 @@ class Assembly:
         return {
             'assembler': self.assembler,
             'assembly_dir': self.assembly_dir,
+            'assembly': self.assembly,
             'sample_dir': self._sample_dir,
             'len': len(self),
             'plot': self.plot,

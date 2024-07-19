@@ -13,6 +13,7 @@ from .ContigGroup import ContigGroup
 class AssemblyImporter(ABC):
     assembler: str = None
     assembly_dir: str = None  # The directory where the assembly is located, relative to sample_dir
+    assembly: str = None  # The location of the assembly, relative to assembly_dir
 
     _sample_dir: str = None  # The directory where the sample is located
     _assembly_dir_abs: str = None  # The absolute path to the assembly directory
@@ -86,7 +87,7 @@ class AssemblyImporter(ABC):
         return groups
 
     def create_assembly(self, groups: [[str]], contigs: {str: Contig}) -> Assembly:
-        assembly = Assembly(assembler=self.assembler, assembly_dir=self.assembly_dir, sample_dir=self._sample_dir)
+        assembly = Assembly(assembler=self.assembler, assembly_dir=self.assembly_dir, assembly = self.assembly, sample_dir=self._sample_dir)
         for group in groups:
             contig_group = ContigGroup()
             for segment in group:
