@@ -1,3 +1,4 @@
+import logging
 import os.path
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
@@ -92,9 +93,17 @@ class AssemblyImporter(ABC):
             contig_group = ContigGroup()
             for segment in group:
                 if segment in contigs:
-                    contig_group.contigs.append(contigs[segment])
+                    contig_group.contigs.append(contigs.pop(segment))
+                else:
+                    logging.info(f'{self.name}: Segment {segment} not found in contigs')
             if contig_group.contigs:
                 assembly.contig_groups.append(contig_group)
+            else:
+                logging.info(f'{self.name}: Empty contig group: {group=}')
+
+        for name, contig in contigs.items():
+            logging.info(f'{self.name}: Contig {name} not in any group')
+            assembly.contig_groups.append(ContigGroup([contig]))
 
         # Sanity check: ensure no contigs were lost
         for name, contig in contigs.items():

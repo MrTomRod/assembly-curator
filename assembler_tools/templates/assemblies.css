@@ -10,11 +10,11 @@ table img, table svg {
 }
 
 #ani-clustermap-container .contig-group.selected {
-    stroke: red !important;
+    stroke: green !important;
 }
 
 div.contig-group.selected {
-    background-color: #f00;
+    background-color: green;
 }
 
 .translate-middle-custom {
@@ -39,4 +39,10 @@ div.contig-group.selected {
     position: absolute;
     top: 10px;
     right: 10px;
+}
+
+.popover-danger {
+  --bs-popover-border-color: #721c24;
+  --bs-popover-header-bg: #721c24;
+  /*--bs-popover-header-color: #f8d7da;*/
 }

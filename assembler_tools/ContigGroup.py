@@ -45,6 +45,12 @@ class ContigGroup:
     def gc_rel(self) -> float:
         return self.gc_abs / len(self)
 
+    def topology_or_n_contigs(self, short: bool = False) -> str:
+        if len(self.contigs) == 1:
+            topology = self.contigs[0].topology
+            return topology[0] if short else topology
+        return f'n={len(self.contigs)}' if short else f'{len(self.contigs)} contigs'
+
     def encode_sequences(self) -> [bytes]:
         return [contig.sequence.encode('ascii') for contig in self.contigs]
 
@@ -55,6 +61,7 @@ class ContigGroup:
             'gc_abs': self.gc_abs,
             'gc_rel': self.gc_rel,
             'assembler': self.assembler,
-            'contigs': {contig.id: contig.to_json(sequence, self.id) for contig in self.contigs}
+            'contigs': {contig.id: contig.to_json(sequence, self.id) for contig in self.contigs},
+            'topology_or_n_contigs': self.topology_or_n_contigs()
         }
         return res

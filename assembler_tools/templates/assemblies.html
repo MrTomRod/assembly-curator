@@ -86,7 +86,7 @@
         {% endfor %}
     </tr>
 
-    <tr>
+    <tr id="row-contigs">
         <th scope="row">Contigs</th>
         {% for assembly in assemblies %}
         <td>
@@ -103,7 +103,7 @@
                 {% if contig_group.contigs.__len__() == 1 %}
                 {% for contig in contig_group.contigs %}
                 <div class="contig-group btn btn-primary position-relative"
-                     data-cg="{{ contig_group.id }}" onclick="toggleContigGroup('{{ contig_group.id }}')">
+                     data-cg="{{ contig_group.id }}">
                     {{ contig.original_id }} ({{ contig.len_human() }})
                     <span class="position-absolute top-0 start-100 translate-middle-custom">
                         <div class="d-flex">
@@ -115,7 +115,6 @@
                 {% endfor %}
                 {% else %}
                 <div class="contig-group card" data-cg="{{ contig_group.id }}"
-                     onclick="toggleContigGroup('{{ contig_group.id }}')"
                      style="width: 18rem;">
                     <div class="card-header">
                         Group: {{ contig_group.id }} ({{contig_group.len_human()}})
@@ -154,6 +153,7 @@
                 fill: black;
                 paint-order: stroke;
                 font-weight: 800;
+                user-select: none;
             }
 
             .gfaviz-container svg text.selected {

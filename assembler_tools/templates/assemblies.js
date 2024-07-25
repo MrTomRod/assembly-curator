@@ -109,12 +109,23 @@ function humanBP(bp) {
 
 function createContigGroupContent(contigGroup) {
     const md = window.dataset.contigGroups[contigGroup]  // short for metadata
+    const numberOfContigs = Object.keys(md.contigs).length;
+    let nOrT, nOrTVal
+    if (numberOfContigs === 1) {
+        [nOrT, nOrTVal] = ['Topology', md.topology_or_n_contigs]
+    } else {
+        [nOrT, nOrTVal] = ['Number of contigs', md.contigs.length]
+    }
+    // loop over md.contigs and get contig.coverage
+    const coverage = Object.values(md.contigs).reduce((acc, contig) => acc + contig.coverage, 0)
     return `
     <div class="card">
         <div class="card-header">${md.id}</div>
         <ul class="list-group list-group-flush">
+            <li class="list-group-item"><strong>${nOrT}</strong>: ${nOrTVal}</li>
             <li class="list-group-item"><strong>Length</strong>: ${humanBP(md.len)}</li>
             <li class="list-group-item"><strong>GC content</strong>: ${formatAsPercentage(md.gc_rel)}</li>
+            <li class="list-group-item"><strong>Coverage</strong>: ${(coverage)}x</li>
         </ul>
     </div>`
 }
@@ -134,6 +145,7 @@ function getFasta(contigGroup) {
         let keep = false
         for (let line of fasta.split('\n')) {
             if (line.startsWith('>')) {
+                line = line.split(/\s+/)[0]  // split by whitespace and take the first part
                 if (contigs.includes(line.slice(1))) {
                     foundContigs.push(line.slice(1))
                     keep = true
@@ -185,8 +197,6 @@ function loadDotplot(event) {
     const fastaQry = getFasta(this.dataset.qry)
 
     Promise.all([fastaRef, fastaQry]).then(([ref, qry]) => {
-        console.log({ref, qry})
-
         const res = assembliesToPaf(ref, qry, 'data')
         res.then(([paf, err, cmd]) => {
             const table = loadPaf(paf)
@@ -201,7 +211,6 @@ function aniMatrixInitPopover(dendrogramLabels, dendrogramData) {
     const popoverMap = new Map();
 
     function showPopover(popover, rightClick = false) {
-        // console.log('showing', {persistent: popover.xx_is_persistent, shown: popover.xx_is_shown})
         if (rightClick) {
             popover.xx_is_persistent = !popover.xx_is_persistent
             if (!popover.xx_is_persistent) {
@@ -215,7 +224,6 @@ function aniMatrixInitPopover(dendrogramLabels, dendrogramData) {
     }
 
     function hidePopover(popover) {
-        // console.log('hiding', {persistent: popover.xx_is_persistent, shown: popover.xx_is_shown})
         if (popover.xx_is_persistent) return
         if (popover.xx_is_shown) {
             popover.xx_is_shown = false
@@ -286,7 +294,7 @@ function aniMatrixInitPopover(dendrogramLabels, dendrogramData) {
             title: titleFunction,
             content: contentFunction,
             container: 'body',
-            placement: 'auto'
+            placement: 'bottom'
         })
 
         path.addEventListener('shown.bs.popover', function () {
@@ -343,17 +351,82 @@ function aniMatrixInitPopover(dendrogramLabels, dendrogramData) {
     })
 }
 
+function makeDraggable(svg) {
+    svg.addEventListener('mousedown', startDrag);
+    svg.addEventListener('mousemove', drag);
+    svg.addEventListener('mouseup', endDrag);
+    svg.addEventListener('mouseleave', endDrag);
+
+    let selectedElement, offset;
+
+
+    function getMousePosition(evt) {
+        const CTM = selectedElement.parentElement.getCTM();
+        return {
+            x: (evt.clientX - CTM.e) / CTM.a,
+            y: (evt.clientY - CTM.f) / CTM.d
+        };
+    }
+
+
+    function startDrag(evt) {
+        if (evt.target.classList.contains('draggable')) {
+            selectedElement = evt.target;
+            offset = getMousePosition(evt);
+            offset.x -= parseFloat(selectedElement.getAttributeNS(null, "x"));
+            offset.y -= parseFloat(selectedElement.getAttributeNS(null, "y"));
+        }
+    }
+
+    function drag(evt) {
+        if (selectedElement) {
+            const coord = getMousePosition(evt);
+            evt.preventDefault();
+            selectedElement.setAttributeNS(null, "x", coord.x - offset.x);
+            selectedElement.setAttributeNS(null, "y", coord.y - offset.y);
+        }
+    }
+
+    function endDrag(evt) {
+        selectedElement = null;
+    }
+
+    return function isDragging() {
+        return selectedElement !== null;
+    }
+}
 
 function initGfavizPopover() {
     document.querySelectorAll('.gfaviz-container').forEach((gfavizContainer) => {
+        const svg = gfavizContainer.querySelector('svg')
+
+        if (!svg) return
         const assembly = gfavizContainer.getAttribute('data-assembly');
+        const isDragging = makeDraggable(svg)
+
         gfavizContainer.querySelectorAll('svg text').forEach((textElement) => {
             // move them to the front
             textElement.parentNode.parentNode.appendChild(textElement.parentNode);
+            textElement.classList.add('draggable');
 
             // get contig name
             const contigOriginalName = textElement.textContent
             const contigId = `${assembly}@${contigOriginalName}`
+
+            // sometimes, a contig in the svg is not in the metadata because it was filtered out during polishing (Flye)
+            if (!window.dataset.contigs[contigId]) {
+                // add Popover with warning
+                const popoverInstance = new bootstrap.Popover(textElement, {
+                    trigger: 'hover',
+                    title: 'Warning',
+                    content: `Contig ${contigOriginalName} is missing in the assembly FASTA file.`,
+                    container: 'body',
+                    placement: 'top',
+                    customClass: 'popover-danger'
+                });
+                return
+            }
+
             const contigGroupId = window.dataset.contigs[contigId].contig_group
 
             // set class contig and contig-<contig>
@@ -365,7 +438,7 @@ function initGfavizPopover() {
                 trigger: 'manual',
                 html: true,
                 title: contigGroupId,
-                content: 'content',
+                content: createContigGroupContent(contigGroupId),
                 container: 'body',
                 placement: 'top'
             });
@@ -373,7 +446,7 @@ function initGfavizPopover() {
             // Show popover on mouseenter
             textElement.addEventListener('mouseenter', function () {
                 const popover = popoverInstance
-                if (popover) popover.show()
+                if (popover && !isDragging()) popover.show()
             });
 
             // Hide popover on mouseleave
@@ -388,6 +461,14 @@ function initGfavizPopover() {
 };
 
 
+// Trigger toggleContigGroup on click on contigs in the table
+function toggleContigGroupTable() {
+    document.querySelectorAll('#row-contigs [data-cg]').forEach((contig) => {
+        contig.addEventListener('click', toggleContigGroup);
+    })
+}
+
+
 function aniMatrixDeactivateAnnotations() {
     document.getElementById('ani-clustermap-container')
         .querySelectorAll('#axes_3 > [id^="text_"]')
@@ -398,6 +479,8 @@ function aniMatrixDeactivateAnnotations() {
 
 
 document.addEventListener('DOMContentLoaded', function () {
+    toggleContigGroupTable()
+
     const [dendrogramLabels, dendrogramData] = aniMatrixGetDendrogramInfo();
     aniMatrixDeactivateAnnotations()
 

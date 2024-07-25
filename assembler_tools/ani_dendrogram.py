@@ -1,3 +1,4 @@
+import logging
 from io import StringIO
 from tempfile import TemporaryDirectory
 import numpy as np
@@ -8,6 +9,7 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import pyskani
 
+from assembler_tools import ContigGroup
 from assembler_tools.utils import AssemblyFailedException, MinorAssemblyException
 from assembler_tools.Assembly import Assembly
 
@@ -24,17 +26,25 @@ def ani_clustermap(assemblies: [Assembly], output_file: str, cutoff: float = .9)
     return html
 
 
-def calculate_length_matrix(distance_matrix: pd.DataFrame, assemblies: [Assembly],
-                            label_cutoff: float = .9) -> pd.DataFrame:
+def calculate_length_matrix(
+        distance_matrix: pd.DataFrame,
+        assemblies: [Assembly],
+        label_cutoff: float = .9
+) -> pd.DataFrame:
+    contig_groups = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
+    contig_group_to_len = {id: len(cg) for id, cg in contig_groups.items()}
+
     # Create a dataframe with same col/rows as distance_matrix
     # for each contig group (i, j), store the len(i) / len(j), i.e. the ratio of the lengths
-    contig_group_to_len = {cg.id: len(cg) for assembly in assemblies for cg in assembly.contig_groups}
-
     length_matrix = pd.DataFrame(index=distance_matrix.index, columns=distance_matrix.columns)
-    for i, assembly_i in enumerate(distance_matrix.index):
-        for j, assembly_j in enumerate(distance_matrix.columns):
+    for i, cg_id_i in enumerate(distance_matrix.index):
+        for j, cg_id_j in enumerate(distance_matrix.columns):
+            if cg_id_i == cg_id_j:
+                cg: ContigGroup = contig_groups[cg_id_i]
+                length_matrix.iloc[i, j] = cg.topology_or_n_contigs(short=True)
+                continue
             if distance_matrix.iloc[i, j] > label_cutoff:
-                frac = contig_group_to_len[assembly_i] / contig_group_to_len[assembly_j]
+                frac = contig_group_to_len[cg_id_i] / contig_group_to_len[cg_id_j]
                 length_matrix.iloc[i, j] = f'{frac:.2g}'
             else:
                 length_matrix.iloc[i, j] = ''
@@ -61,7 +71,14 @@ def calculate_similarity_matrix(assemblies: [Assembly], output_file: str):
             for hit in hits:
                 similarity_matrix.at[contig_group.id, hit.reference_name] = hit.identity
 
+    # This similarity matrix is not always symmetric. We enforce this to get a nice diagonal after clustering.
+    similarity_matrix = (similarity_matrix + similarity_matrix.T) / 2
+
     similarity_matrix.to_csv(output_file, sep='\t')
+
+    if len(similarity_matrix) < 2:
+        raise MinorAssemblyException("Not enough contig groups to create a similarity matrix")
+
     return similarity_matrix
 
 

@@ -49,7 +49,9 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
     return assemblies, messages
 
 
-def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overview_file: str = 'overview.html'):
+def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overview_file: str = None):
+    if overview_file is None:
+        overview_file = f'{samples_dir}/overview.html'
     samples = [s for s in os.listdir(samples_dir) if os.path.isdir(os.path.join(samples_dir, s))]
     print(f"Processing {len(samples)} samples in {samples_dir}")
 
@@ -109,6 +111,9 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
 
 
 def cli(samples_dir: str = './data', plugin_dir: str = None):
+    LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
+    logging.basicConfig(level=LOGLEVEL)
+
     if plugin_dir is None:
         plugin_dir = os.environ.get('PLUGIN_DIR', './plugins')
     assert os.path.isdir(plugin_dir), f"Plugin directory {plugin_dir} does not exist"
