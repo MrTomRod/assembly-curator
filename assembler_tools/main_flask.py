@@ -13,8 +13,7 @@ from pywebio.session import eval_js
 from urllib.parse import urlparse, parse_qs
 
 from assembler_tools.ContigGroup import ContigGroup
-from assembler_tools.main_base import load_assemblies, prepare_website, process_sample
-from assembler_tools.ani_dendrogram import ani_clustermap
+from assembler_tools.main_base import process_sample
 from assembler_tools.utils import load_plugins, get_relative_path, AssemblyFailedException
 from assembler_tools.Assembly import Assembly
 from assembler_tools.AssemblyImporter import AssemblyImporter

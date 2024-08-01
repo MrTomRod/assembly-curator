@@ -53,6 +53,41 @@
 
 </div>
 
+
+<div class="container text-center">
+    {% for cluster_id, table in dotplot_tables.items() %}
+    <h2>Cluster {{ cluster_id }}</h2>
+    <table border="1">
+        <thead>
+        <tr>
+            <th></th>
+            {% for cg_col in table.keys() %}
+            <th>{{ cg_col }}</th>
+            {% endfor %}
+        </tr>
+        </thead>
+        <tbody>
+        {% for cg_row, row in table.items() %}
+        <tr>
+            <th>{{ cg_row }}</th>
+            {% for cg_col in table.keys() %}
+            <td>
+                {% if row[cg_col].dotplot %}
+                <img src="dotplots/{{ row[cg_col].dotplot | urlencode }}" {% if row[cg_col].is_inverted %} style="display: inline-block;transform: rotate(90deg)"{% endif %}>
+                {% else %}
+                N/A
+                {% endif %}
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% endfor %}
+
+</div>
+
+
 <table class="table table-striped table-bordered">
     <thead>
     <tr>

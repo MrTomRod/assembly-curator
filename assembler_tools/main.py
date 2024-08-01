@@ -37,13 +37,19 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
 
     prepare_website(samples_dir)
 
+    import time
+    all_time = time.time()
+
     for sample in samples:
         sample_dir = os.path.join(samples_dir, sample)
         if not os.path.isdir(sample_dir):
             logging.info(f"Skipping {sample} as it is not a directory")
             continue
 
-        process_sample(sample, sample_dir, importers, samples_dir)
+        process_sample(sample, sample_dir, importers)
+        print('XXXXXXXXXXXXXXXX')
+        print(f"{time.time() - all_time:.2f}sec.png")
+        exit(0)
 
         # final_assembly = curate_assemblies(assemblies)
         # print(f"Final assembly for {sample}: {final_assembly}")
