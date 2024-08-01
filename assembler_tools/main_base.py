@@ -4,6 +4,7 @@ import json
 import logging
 from typing import List, Type
 
+from assembler_tools.ContigGroup import ContigGroup
 from assembler_tools.utils import AssemblyFailedException
 from assembler_tools.ani_dendrogram import ani_clustermap, group_by_linkage
 from assembler_tools.Assembly import Assembly
@@ -23,7 +24,7 @@ def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyIm
     assemblies, messages = load_assemblies(sample, sample_dir, importers)
     similarity_matrix, ani_html, linkage_matrix = ani_clustermap(assemblies=assemblies)
 
-    dotplot_tables = create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_dir)
+    clusters = create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_dir)
 
     if similarity_matrix is not None:
         similarity_matrix.to_csv(f'{sample_dir}/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
@@ -36,7 +37,7 @@ def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyIm
         sample=sample,
         assemblies=assemblies,
         ani_html=ani_html,
-        dotplot_tables=dotplot_tables,
+        clusters=clusters,
     ).dump(f"{sample_dir}/assemblies.html")
 
     return assemblies
@@ -67,37 +68,24 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
     return assemblies, messages
 
 
-from assembler_tools.dotplots import create_dotplots, add_separators, DotplotConfig
-
-config = DotplotConfig(kmer=40, background_colour='white',
-                       color_fwd='mediumblue', color_rev='firebrick', line_color='black')
+from assembler_tools.rrwick_dotplots import DotplotConfig, create_dotplots
 
 
-def create_dotplot(cluster_id, contig_group_1, contig_group_2, output_dir: str, res=1000):
-    if len(contig_group_2) > 1_000_000:
-        print('too large')
-        return ''
-
-    # concatenate sequences
-    seq_a = ''.join(contig.sequence for contig in contig_group_1.contigs)
-    seq_b = ''.join(contig.sequence for contig in contig_group_2.contigs)
-
-    # calculate bp_per_pixel: make sure that the dotplot is not too large
-    bp_per_pixel = max(len(seq_a), len(seq_b)) / res
-    config.bp_per_pixel = bp_per_pixel
-
-    # add separators
-    separators_a = [0] + [len(contig.sequence) for contig in contig_group_1.contigs]
-    separators_b = [0] + [len(contig.sequence) for contig in contig_group_2.contigs]
-
-    # create dotplot
-    image, draw = create_dotplots(seq_a, seq_b, config)
-    add_separators(image, draw, separators_a, separators_b, config)
-
-    filename = f"{cluster_id}-{contig_group_1.id}-{contig_group_2.id}.png"
-    output_file = os.path.join(output_dir, filename)
-    image.save(output_file)
-    return filename
+def create_cluster_dotplots(
+        seq_names,
+        seqs,
+        output: str,
+        bp_per_pixel: float = 20.,
+        kmer=15,
+        initial_top_left_gap=0.1, border_gap=0.015, between_seq_gap=0.0125, outline_width=0.0015,
+        text_gap=0.005, max_font_size=0.025,
+        background_colour='white', self_vs_self_colour='lightgrey', self_vs_other_colour='whitesmoke',
+        text_colour='black', forward_strand_dot_colour='mediumblue', reverse_strand_dot_colour='firebrick'
+):
+    res = round(sum(len(s) for s in seqs.values()) / bp_per_pixel)
+    config = DotplotConfig(**{k: v for k, v in locals().items() if k not in ['seq_names', 'seqs', 'output']})
+    image = create_dotplots(seq_names, seqs, config)
+    image.save(output)
 
 
 def create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_dir: str):
@@ -106,36 +94,27 @@ def create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_di
     cgs = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
     clusters = group_by_linkage(similarity_matrix, linkage_matrix)
 
-    tables = {}
-    for cluster, contig_groups in clusters.items():
-        # compare all pairs of contig groups in the cluster, only once though
-        tables[cluster] = create_cluster_dotplots(cluster, contig_groups, dotplot_outdir, cgs)
-        # break
+    for cluster, cluster_cgs in clusters.items():
+        print(cluster, cluster_cgs)
+        contigs = {}
+        for cg in cluster_cgs:
+            cg = cgs[cg]
+            print(f'  {cg}')
+            for c in cg.contigs:
+                print(f'    {c}')
+                contigs[cg.id] = c
 
-    print(tables)
-    return tables
+        length = sum(len(c) for c in contigs.values())
+        if length > 1_000_000:
+            print(f"Skipping cluster {cluster} with total length {len}")
+            continue
+        create_cluster_dotplots(
+            contigs.keys(),
+            {k: c.sequence for k, c in contigs.items()},
+            os.path.join(dotplot_outdir, f'{cluster}.png')
+        )
 
-
-def create_cluster_dotplots(cluster, contig_groups: [str], dotplot_outdir: str, cgs):
-    table = {}
-    dotplots = {}
-    for i, cg_name_i in enumerate(contig_groups):
-        table[cg_name_i] = {}
-        for j, cg_name_j in enumerate(contig_groups):
-            cg_i, cg_j = cgs[cg_name_i], cgs[cg_name_j]
-
-            if len(cg_j) < len(cg_i):  # faster
-                cg_i, cg_j = cg_j, cg_i
-
-            if (cg_i, cg_j) not in dotplots:
-                dotplots[(cg_i.id, cg_j.id)] = create_dotplot(i, cg_i, cg_j, output_dir=dotplot_outdir)
-
-            table[cg_name_i][cg_name_j] = {
-                'dotplot': dotplots[(cg_i.id, cg_j.id)],
-                'is_inverted': (cg_name_i, cg_name_j) not in dotplots
-            }
-
-    return table
+    return clusters
 
 
 def prepare_website(samples_dir: str, link: bool = True):
