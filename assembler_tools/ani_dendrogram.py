@@ -14,16 +14,17 @@ from assembler_tools.utils import AssemblyFailedException, MinorAssemblyExceptio
 from assembler_tools.Assembly import Assembly
 
 
-def ani_clustermap(assemblies: [Assembly], output_file: str, cutoff: float = .9) -> str:
+def ani_clustermap(assemblies: [Assembly], cutoff: float = .9) -> str:
     try:
-        distance_matrix = calculate_similarity_matrix(assemblies, output_file)
+        distance_matrix = calculate_similarity_matrix(assemblies)
         length_matrix = calculate_length_matrix(distance_matrix, assemblies, label_cutoff=cutoff)
         html = plot_clustermap(distance_matrix,
                                annot=length_matrix, annot_kws={"fontsize": 6}, fmt='',
                                vmin=cutoff, vmax=1)
     except MinorAssemblyException as e:
-        return f'<p class="error">{e}</p>'
-    return html
+        logging.warning(f"Failed to compute ANI matrix: {e}")
+        return None, f'<p class="error">{e}</p>'
+    return distance_matrix, html
 
 
 def calculate_length_matrix(
@@ -52,7 +53,7 @@ def calculate_length_matrix(
     return length_matrix
 
 
-def calculate_similarity_matrix(assemblies: [Assembly], output_file: str):
+def calculate_similarity_matrix(assemblies: [Assembly]):
     """Decision: create fasta for each contig or for each contig_group"""
     # Create a temporary directory for the pyskani sketches
     pyskani_db = pyskani.Database()
@@ -73,8 +74,6 @@ def calculate_similarity_matrix(assemblies: [Assembly], output_file: str):
 
     # This similarity matrix is not always symmetric. We enforce this to get a nice diagonal after clustering.
     similarity_matrix = (similarity_matrix + similarity_matrix.T) / 2
-
-    similarity_matrix.to_csv(output_file, sep='\t')
 
     if len(similarity_matrix) < 2:
         raise MinorAssemblyException("Not enough contig groups to create a similarity matrix")

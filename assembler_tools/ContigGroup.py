@@ -52,6 +52,7 @@ class ContigGroup:
         return f'n={len(self.contigs)}' if short else f'{len(self.contigs)} contigs'
 
     def encode_sequences(self) -> [bytes]:
+        # Format used by skani
         return [contig.sequence.encode('ascii') for contig in self.contigs]
 
     def to_json(self, sequence: bool = False):

@@ -19,7 +19,7 @@ class LjaImporter(AssemblyImporter):
         gfa, connections, circular = self.load_gfa(f"{self._assembly_dir_abs}/{self.gfa}")
 
         for contig in contigs:
-            assert contig in connections, f'{contig=} not in {connections=}'
+            assert contig in connections, f'{contig=} not in {connections=} (assembly:{self._assembly_dir_abs})'
 
         self.declare_topology(contigs, circular)
 

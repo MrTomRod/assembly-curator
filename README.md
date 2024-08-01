@@ -1,21 +1,23 @@
 # Todo
 
-- Coverage
-- gfapy issue: https://github.com/ggonnella/gfapy/issues/31
-- Autosolve easy cases
-- Dotplot: ani-matrix -> dotplot; whole assembly dotplot ("I forgot to mention also the duplicated/chimeric
+- [ ] Curation: manual fixing of headers
+- [ ] Curation: write output files
+- [x] Coverage
+- [x] gfapy issue: https://github.com/ggonnella/gfapy/issues/31
+- [ ] Autosolve easy cases
+- [ ] Dotplot: ani-matrix -> dotplot; whole assembly dotplot ("I forgot to mention also the duplicated/chimeric
   pseudo-plasmids/contigs. They will clearly show up in dotplot. Actually with gepard I was doing all-against-all
   comparisons, not just a self")
-- DnaA centering
+- [ ] DnaA centering
     - https://github.com/sanger-pathogens/circlator/wiki/Task:-fixstart
     - Dnaapler https://joss.theoj.org/papers/10.21105/joss.05968
-- Detect phages and plasmids
+- [ ] Detect phages and plasmids
   -Hatice: "I will send you some examples of dotplots that highlight the artefactual circularized contigs looking like
   plasmids"
 - Interactive web server: more lightweight than Django?
     - https://www.pyweb.io/
     - https://bottlepy.org/docs/dev/
-- Dotplot: What I have is nice, but maybe overkill?
+- [ ] Dotplot: What I have is nice, but maybe overkill?
     - Maybe I should create a more static multiplot per cluster
       like [trycycler](https://github.com/rrwick/Trycycler/blob/77d1be8cf786969a3821f3c04086df60b39ff781/trycycler/dotplot.py#L38)
     - Ignore for now?

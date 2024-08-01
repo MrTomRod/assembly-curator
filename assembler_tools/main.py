@@ -4,7 +4,7 @@ import shutil
 import logging
 from typing import List, Type
 
-from assembler_tools.ani_dendrogram import ani_clustermap
+from assembler_tools.main_base import prepare_website, process_sample
 from assembler_tools.utils import load_plugins, get_relative_path, AssemblyFailedException
 from assembler_tools.Assembly import Assembly
 from assembler_tools.AssemblyImporter import AssemblyImporter
@@ -24,31 +24,6 @@ def curate_assemblies(assemblies: [Assembly]) -> Assembly:
     return assemblies[0]
 
 
-def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyImporter]]) -> ([Assembly], [str]):
-    print(f"Processing {sample}")
-
-    assemblies: [Assembly] = []
-    messages: [str] = []
-    for importer_class in importers:
-        try:
-            importer = importer_class(sample_dir)
-            print(f"  -> loading {sample} with {importer.name}")
-            assembly = importer.load_assembly()
-            assemblies.append(assembly)
-            assembly.pprint()
-        except AssemblyFailedException as e:
-            logging.warning(str(e))
-            messages.append(e)
-
-    if not assemblies:
-        msg = f"Failed to load any assemblies for {sample}"
-        logging.warning(msg)
-        messages.insert(0, msg)
-    else:
-        print(f"Loaded {len(assemblies)} assemblies for {sample}")
-    return assemblies, messages
-
-
 def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overview_file: str = None):
     if overview_file is None:
         overview_file = f'{samples_dir}/overview.html'
@@ -60,51 +35,15 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
         relpath=get_relative_path(overview_file, samples_dir)
     ).dump(overview_file)
 
+    prepare_website(samples_dir)
+
     for sample in samples:
         sample_dir = os.path.join(samples_dir, sample)
         if not os.path.isdir(sample_dir):
             logging.info(f"Skipping {sample} as it is not a directory")
             continue
-        assemblies, messages = load_assemblies(sample, sample_dir, importers)
-        ani_html = ani_clustermap(
-            assemblies=assemblies,
-            output_file=f'{samples_dir}/pyskani_similarity_matrix.tsv'
-        )
 
-        with open(f"{sample_dir}/assemblies.json", 'w') as f:
-            json.dump({assembly.assembler: assembly.to_json() for assembly in assemblies}, f, indent=2)
-
-        template_assemblies.stream(
-            messages=messages,
-            sample=sample,
-            assemblies=assemblies,
-            ani_html=ani_html,
-        ).dump(f"{sample_dir}/assemblies.html")
-
-        def link(src, dst):
-            if os.path.isfile(dst):
-                os.remove(dst)
-            os.link(src, dst)
-
-        copy_or_link = link  # shutil.copy
-        # Add dotplot.js
-        copy_or_link(
-            os.path.join('/home/thomas/PycharmProjects/dotplot.js/dotplot.js'),
-            f"{samples_dir}/dotplot.js"
-        )
-        # use link instead
-
-        # Add assemblies.css
-        copy_or_link(
-            os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.css'),
-            f"{samples_dir}/assemblies.css"
-        )
-
-        # Add assemblies.js
-        copy_or_link(
-            os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.js'),
-            f"{samples_dir}/assemblies.js"
-        )
+        process_sample(sample, sample_dir, importers, samples_dir)
 
         # final_assembly = curate_assemblies(assemblies)
         # print(f"Final assembly for {sample}: {final_assembly}")

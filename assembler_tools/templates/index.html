@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Overview</title>
+</head>
+<body>
+
+<h1>{{ title }}</h1>
+
+
+{% if samples %}
+<h2>Samples</h2>
+
+<ul>
+    {% for sample in samples %}
+    <li>
+        <a href="{{ relpath }}/{{ sample.name }}/assemblies.html">{{ sample.name }}</a>:
+        {{ sample.complete }}
+        <a href="{{ relpath }}/{{ sample.name }}">browse files</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+
+{% if folders %}
+<h2>Folders</h2>
+
+<ul>
+    {% for folder in folders %}
+    <li>
+        <a href="{{ folder }}/">{{ folder }}/</a>
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+
+{% if files %}
+<h2>Files</h2>
+
+<ul>
+    {% for file in files %}
+    <li><a href="{{ file }}">{{ file }}</a></li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+
+{% if links %}
+<h2>Links</h2>
+
+<ul>
+    {% for link in links %}
+    <li><a href="{{ link.url }}">{{ link.name }}</a></li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+</body>
+</html>

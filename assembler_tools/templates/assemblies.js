@@ -177,8 +177,8 @@ function loadDotplot(event) {
     // Define the HTML content as a string
     const htmlContent = `
     <div id="dotplot-overlay">
+        <div id="dotplot" style=""></div>
         <button id="dotplot-quit" class="btn btn-danger">Quit</button>
-        <div id="dotplot" style="resize: both; overflow: auto; margin: 10px; width: 100%; aspect-ratio: 1 / 1"></div>
     </div>`;
 
     // Add the div to the document body
@@ -477,6 +477,53 @@ function aniMatrixDeactivateAnnotations() {
         });
 }
 
+// click on #btn-curate will send the selected contigs to the server (/curate)
+document.getElementById('btn-curate').addEventListener('click', function () {
+    const payload = {
+        sample: document.getElementById('sample').textContent,
+        contigs: Array.from(document.querySelectorAll('#row-contigs .contig-group.selected')).map(contig => contig.getAttribute('data-cg')),
+    }
+    console.log({payload})
+
+    if (payload.contigs.length === 0) {
+        alert('No contigs selected!')
+        return
+    }
+
+    // Add iframe to #curate-div
+    // Similar to <iframe src="/curate?sample=${payload.sample}&contigs=${payload.contigs.join(',')}" title="Curate"></iframe>
+    const targetDiv = document.getElementById('curate-div')
+    const iframe = document.createElement('iframe')
+
+    const encodedSample = encodeURIComponent(payload.sample);
+    const encodedContigs = payload.contigs.map(contig => encodeURIComponent(contig)).join(',');
+    iframe.src = `/curate?sample=${encodedSample}&contig_groups=${encodedContigs}`;
+    iframe.title = `Curate ${payload.sample}`
+    targetDiv.innerHTML = ''
+    targetDiv.appendChild(iframe)
+
+    // // forward to /curate?sample=...&contigs=...
+    // const url = new URL('/curate', window.location.origin)
+    // url.searchParams.append('sample', payload.sample)
+    // payload.contigs.forEach(contig => url.searchParams.append('contigs', payload.contigs))
+    // window.location.href = url
+
+    // // send the payload to the server
+    // fetch('/curate', {
+    //     method: 'POST',
+    //     headers: {
+    //         'Content-Type': 'application/json'
+    //     },
+    //     body: JSON.stringify(payload)
+    // }).then(response => {
+    //     if (response.ok) {
+    //         alert('The selected contigs have been sent for curation.')
+    //     } else {
+    //         console.log({response, payload})
+    //         alert('An error occurred while sending the selected contigs for curation.')
+    //     }
+    // })
+})
 
 document.addEventListener('DOMContentLoaded', function () {
     toggleContigGroupTable()
