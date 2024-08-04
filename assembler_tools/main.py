@@ -49,7 +49,7 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
         process_sample(sample, sample_dir, importers)
         print('XXXXXXXXXXXXXXXX')
         print(f"{time.time() - all_time:.2f}sec.png")
-        exit(0)
+        # exit(0)
 
         # final_assembly = curate_assemblies(assemblies)
         # print(f"Final assembly for {sample}: {final_assembly}")

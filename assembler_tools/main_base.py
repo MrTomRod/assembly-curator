@@ -68,24 +68,7 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
     return assemblies, messages
 
 
-from assembler_tools.rrwick_dotplots import DotplotConfig, create_dotplots
-
-
-def create_cluster_dotplots(
-        seq_names,
-        seqs,
-        output: str,
-        bp_per_pixel: float = 20.,
-        kmer=15,
-        initial_top_left_gap=0.1, border_gap=0.015, between_seq_gap=0.0125, outline_width=0.0015,
-        text_gap=0.005, max_font_size=0.025,
-        background_colour='white', self_vs_self_colour='lightgrey', self_vs_other_colour='whitesmoke',
-        text_colour='black', forward_strand_dot_colour='mediumblue', reverse_strand_dot_colour='firebrick'
-):
-    res = round(sum(len(s) for s in seqs.values()) / bp_per_pixel)
-    config = DotplotConfig(**{k: v for k, v in locals().items() if k not in ['seq_names', 'seqs', 'output']})
-    image = create_dotplots(seq_names, seqs, config)
-    image.save(output)
+from assembler_tools.dotplots import DotplotConfig, create_dotplots
 
 
 def create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_dir: str):
@@ -96,23 +79,12 @@ def create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_di
 
     for cluster, cluster_cgs in clusters.items():
         print(cluster, cluster_cgs)
-        contigs = {}
-        for cg in cluster_cgs:
-            cg = cgs[cg]
-            print(f'  {cg}')
-            for c in cg.contigs:
-                print(f'    {c}')
-                contigs[cg.id] = c
-
-        length = sum(len(c) for c in contigs.values())
+        cluster_cgs = [cgs[cg] for cg in cluster_cgs]
+        length = sum(len(c) for c in cluster_cgs)
         if length > 1_000_000:
             print(f"Skipping cluster {cluster} with total length {len}")
             continue
-        create_cluster_dotplots(
-            contigs.keys(),
-            {k: c.sequence for k, c in contigs.items()},
-            os.path.join(dotplot_outdir, f'{cluster}.png')
-        )
+        create_dotplots(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster}.svg'))
 
     return clusters
 

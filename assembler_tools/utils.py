@@ -54,11 +54,14 @@ def load_plugins(dir_path: str) -> List[Type['AssemblyImporter']]:
     return plugins
 
 
-def human_bp(bp: int) -> str:
+def human_bp(bp: int, decimals: int = 1, zero_val='0bp') -> str:
+    if bp == 0:
+        return zero_val
     magnitude = floor(log(bp, 1000))
     shortened = bp / 1000 ** magnitude
     unit = ['', 'kbp', 'mbp', 'gbp', 'tbp', 'pbp'][magnitude]
-    return f'{shortened:.1f}{unit}'
+    # return f'{shortened:.1f}{unit}'
+    return f'{shortened:.{decimals}f}{unit}'
 
 
 def get_relative_path(overview_html: str, sample_dir: str) -> str:

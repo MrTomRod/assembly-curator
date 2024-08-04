@@ -3,7 +3,8 @@
 - [ ] Curation: manual fixing of headers
 - [ ] Curation: write output files
 - [x] Coverage
-- [x] gfapy issue: https://github.com/ggonnella/gfapy/issues/31
+- [ ] gfapy issue: https://github.com/ggonnella/gfapy/issues/31
+  - replace gfapy
 - [ ] Autosolve easy cases
 - [ ] Dotplot: ani-matrix -> dotplot; whole assembly dotplot ("I forgot to mention also the duplicated/chimeric
   pseudo-plasmids/contigs. They will clearly show up in dotplot. Actually with gepard I was doing all-against-all

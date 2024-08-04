@@ -54,17 +54,36 @@
 </div>
 
 
+
 <div class="container text-center dotplots">
     <style>
         .dotplots img {
             max-width: 100%;
         }
     </style>
-    {% for cluster_id in clusters %}
-    <h2>Cluster {{ cluster_id }}</h2>
-    <img src="dotplots/{{ cluster_id }}.png">
-    {% endfor %}
+
+    <h2>Dotplots for clusters</h2>
+
+    <ul class="nav nav-tabs" id="cluster-tabs" role="tablist">
+        {% for cluster_id in clusters %}
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="cluster-{{ cluster_id }}-tab" data-bs-toggle="tab"
+                    data-bs-target="#cluster-{{ cluster_id }}-tab-pane" type="button" role="tab"
+                    aria-controls="cluster-{{ cluster_id }}-tab-pane" aria-selected="false">Cluster {{ cluster_id }}
+            </button>
+            {% endfor %}
+    </ul>
+    <div class="tab-content" id="cluster-tabs-content">
+        {% for cluster_id in clusters %}
+        <!--        <img src="dotplots/{{ cluster_id }}.svg">  -->
+        <div class="tab-pane fade" id="cluster-{{ cluster_id }}-tab-pane" role="tabpanel"
+             aria-labelledby="cluster-{{ cluster_id }}-tab" tabindex="0">
+            <img src="dotplots/{{ cluster_id }}.svg">
+        </div>
+        {% endfor %}
+    </div>
 </div>
+
 
 
 <table class="table table-striped table-bordered">
