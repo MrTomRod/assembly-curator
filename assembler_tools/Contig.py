@@ -120,14 +120,14 @@ class Contig:
         else:
             return template.format(coverage=f'{coverage}x', color='danger')
 
-    def to_json(self, sequence: bool = False, contig_group: str = None):
+    def to_json(self, sequence: bool = False, contig_group: str = None, additional_data: dict = {}) -> dict:
         res = {
             'id': self.id,
             'original_id': self.original_id,
             'assembler': self.assembler,
             'len': len(self),
-            'gc': self.gc_abs,
-            'gc_content': self.gc_rel,
+            'gc_abs': self.gc_abs,
+            'gc_rel': self.gc_rel,
             'coverage': self.coverage,
             'topology': self.topology,
             'location': self.location,
@@ -136,4 +136,5 @@ class Contig:
         }
         if sequence: res['sequence'] = self.sequence
         if contig_group: res['contig_group'] = contig_group
+        res.update(additional_data)
         return res

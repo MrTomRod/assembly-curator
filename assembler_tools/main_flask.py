@@ -3,6 +3,12 @@ import json
 import logging
 from typing import List, Type
 
+import socket
+
+socket.setdefaulttimeout(1000)  # seconds
+from werkzeug.serving import WSGIRequestHandler
+
+
 import dill
 from flask import Flask, send_from_directory, render_template, redirect, request, jsonify
 from pywebio.input import input, FLOAT, SELECT
@@ -80,7 +86,7 @@ def serve_root():
     print('>>>>>>>>>>>>>>> serving root')
 
     def is_complete(dirname):
-        return os.path.isdir(os.path.join(samples_directory, dirname, 'curated_assembly'))
+        return os.path.isfile(os.path.join(samples_directory, dirname, 'curated.fasta'))
 
     samples, files, links = list_directory(samples_directory, '.', is_root=True)
     samples = [{'name': path, 'complete': is_complete(path)} for path in samples]
@@ -114,22 +120,31 @@ def serve_path(filepath):
     full_path = os.path.abspath(os.path.join(samples_directory, filepath))
     dirname, basename = os.path.dirname(full_path), os.path.basename(full_path)
 
+    # Import and serve assembly
     if basename == 'assemblies.html':
         sample = os.path.basename(dirname)
         return serve_assembly(samples_directory, sample)
 
+    # Serve files
     if os.path.isfile(full_path):
-        return send_from_directory(dirname, basename)
+        extension = full_path.rsplit('.', 1)[-1]
+        mimetype = None
+        if extension in ['fasta', 'tsv', 'gfa', 'gv']:
+            mimetype = 'text/plain'
+        return send_from_directory(dirname, basename, as_attachment=False, mimetype=mimetype)
+
+    # Serve directories
     elif os.path.isdir(full_path):
         if not filepath.endswith('/'):
             return redirect(f'/{filepath}/')
         return list_directory(samples_directory, filepath)
+
     else:
         return "404 Not Found :(", 404
 
 
 # PyWebIO application function
-def pywebio_hello_world():
+def pywebio_curate():
     put_html(pywebio_html)
 
     url = eval_js('window.location.href')
@@ -164,10 +179,11 @@ def pywebio_hello_world():
     # sort by length
     contig_groups.sort(key=lambda cg: len(cg), reverse=True)
     headers = create_headers(sample, contig_groups)
+    save_curated(f"{sample_dir}/curated.fasta", headers)
 
 
 # Add the PyWebIO endpoint
-app.add_url_rule('/curate', 'webio_view', webio_view(pywebio_hello_world), methods=['GET', 'POST', 'OPTIONS'])
+app.add_url_rule('/curate', 'webio_view', webio_view(pywebio_curate), methods=['GET', 'POST', 'OPTIONS'])
 
 
 def run_server(
@@ -190,6 +206,8 @@ def run_server(
     global importers
     importers = load_plugins(plugin_dir)
 
+
+    handler = WSGIRequestHandler
     app.run(host=address, port=port, debug=debug)
 
 

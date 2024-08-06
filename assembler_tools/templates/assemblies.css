@@ -1,8 +1,3 @@
-table img, table svg {
-    width: 100%;
-    height: 100%;
-}
-
 #ani-clustermap-container {
     display: flex;
     align-items: center;
@@ -13,9 +8,57 @@ table img, table svg {
     stroke: green !important;
 }
 
-div.contig-group.selected {
-    background-color: green;
+.table-container {
+    width: 100%;
+    overflow-x: auto;
 }
+
+table img, table svg {
+    width: 100%;
+    height: 100%;
+}
+
+table .contig-group {
+    margin: 4px;
+	background: var(--cluster-color);
+    border-width: 3px;
+    border-color: var(--cluster-color);
+}
+/*hover: darken*/
+table .contig-group:hover {
+    background: var(--cluster-color);
+    filter: brightness(85%);
+}
+
+table div.contig-group.selected {
+    border-color: green;
+}
+
+table th:not(:first-child), table td:not(:first-child) {
+    width: 100vw;
+    min-width: 25rem;
+}
+
+#cluster-tabs-content .selected > :first-child {
+    stroke: green;
+    stroke-width: 5px;
+}
+
+.gfaviz-container svg text {
+    stroke-width: 2px;
+    stroke: white;
+    fill: white;
+    paint-order: stroke;
+    user-select: none;
+    dominant-baseline: text-before-edge;
+    font-size: larger;
+    font-weight: bolder;
+}
+
+.gfaviz-container svg text.selected {
+    fill: black;
+}
+
 
 .translate-middle-custom {
     transform: translate(calc(-100% + 10px), -50%) !important;
@@ -23,6 +66,10 @@ div.contig-group.selected {
 
 .popover {
     width: 100%;
+}
+
+.dotplots img {
+    max-width: 100%;
 }
 
 #dotplot-overlay {

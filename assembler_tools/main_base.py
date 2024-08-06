@@ -5,10 +5,11 @@ import logging
 from typing import List, Type
 
 from assembler_tools.ContigGroup import ContigGroup
-from assembler_tools.utils import AssemblyFailedException
-from assembler_tools.ani_dendrogram import ani_clustermap, group_by_linkage
+from assembler_tools.utils import AssemblyFailedException, rgb_array_to_css, css_escape
+from assembler_tools.ani_dendrogram import ani_clustermap, add_cluster_info_to_assemblies
 from assembler_tools.Assembly import Assembly
 from assembler_tools.AssemblyImporter import AssemblyImporter
+from assembler_tools.dotplots import DotplotConfig, create_dotplots
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -16,29 +17,43 @@ env = Environment(
     loader=PackageLoader('assembler_tools', 'templates'),
     autoescape=select_autoescape(['html'])
 )
+env.filters['css_escape'] = css_escape
 template_overview = env.get_template('overview.html')
-template_assemblies = env.get_template('assemblies.html')
+template_assemblies = env.get_template('assemblies.html.jinja2')
+template_assemblies_css = env.get_template('assemblies_dynamic.css.jinja2')
 
 
 def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyImporter]]):
     assemblies, messages = load_assemblies(sample, sample_dir, importers)
-    similarity_matrix, ani_html, linkage_matrix = ani_clustermap(assemblies=assemblies)
-
-    clusters = create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_dir)
-
+    similarity_matrix, sample_to_cluster = ani_clustermap(
+        assemblies=assemblies,
+        fname=f"{sample_dir}/ani_clustermap.svg"
+    )
+    add_cluster_info_to_assemblies(assemblies, sample_to_cluster)
     if similarity_matrix is not None:
         similarity_matrix.to_csv(f'{sample_dir}/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
 
+    cluster_to_color = create_all_dotplots(assemblies, sample_dir)
+
+    json_data = {assembly.assembler: assembly.to_json() for assembly in assemblies}
+
     with open(f"{sample_dir}/assemblies.json", 'w') as f:
-        json.dump({assembly.assembler: assembly.to_json() for assembly in assemblies}, f, indent=2)
+        json.dump(json_data, f, indent=2)
+
+    for contig in sample_to_cluster:
+        sample_to_cluster[contig]['color'] = rgb_array_to_css(sample_to_cluster[contig]['color'])
 
     template_assemblies.stream(
         messages=messages,
         sample=sample,
         assemblies=assemblies,
-        ani_html=ani_html,
-        clusters=clusters,
+        sample_to_cluster=sample_to_cluster,
+        cluster_to_color={k: rgb_array_to_css(v) for k, v in cluster_to_color.items()},
     ).dump(f"{sample_dir}/assemblies.html")
+
+    template_assemblies_css.stream(
+        assemblies=assemblies
+    ).dump(f"{sample_dir}/assemblies_dynamic.css")
 
     return assemblies
 
@@ -68,25 +83,24 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
     return assemblies, messages
 
 
-from assembler_tools.dotplots import DotplotConfig, create_dotplots
-
-
-def create_all_dotplots(assemblies, similarity_matrix, linkage_matrix, sample_dir: str):
+def create_all_dotplots(assemblies, sample_dir: str):
     dotplot_outdir = os.path.join(sample_dir, 'dotplots')
     os.makedirs(dotplot_outdir, exist_ok=True)
     cgs = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
-    clusters = group_by_linkage(similarity_matrix, linkage_matrix)
 
-    for cluster, cluster_cgs in clusters.items():
-        print(cluster, cluster_cgs)
-        cluster_cgs = [cgs[cg] for cg in cluster_cgs]
+    cluster_to_color = {cg.cluster_id: cg.cluster_color for cg in cgs.values()}
+    # sort by data['cluster']
+    cluster_to_color = dict(sorted(cluster_to_color.items(), key=lambda item: item[0]))
+
+    for cluster_id, color in cluster_to_color.items():
+        cluster_cgs = [cg for cg in cgs.values() if cg.cluster_id == cluster_id]
         length = sum(len(c) for c in cluster_cgs)
         if length > 1_000_000:
-            print(f"Skipping cluster {cluster} with total length {len}")
+            print(f"Skipping cluster {cluster_id} with total length {length}")
             continue
-        create_dotplots(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster}.svg'))
+        create_dotplots(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
 
-    return clusters
+    return cluster_to_color
 
 
 def prepare_website(samples_dir: str, link: bool = True):

@@ -216,17 +216,6 @@ unicode = ["unicodedata2 (>=15.1.0)"]
 woff = ["brotli (>=1.0.1)", "brotlicffi (>=0.8.0)", "zopfli (>=0.1.4)"]
 
 [[package]]
-name = "gfapy"
-version = "1.2.3"
-description = "Library for handling data in the GFA1 and GFA2 formats"
-optional = false
-python-versions = "*"
-files = [
-    {file = "gfapy-1.2.3-py3-none-any.whl", hash = "sha256:17ec0284340064dbf5ef9b60aa79b8410161c78ea5cf91922fd8ceee325679cf"},
-    {file = "gfapy-1.2.3.tar.gz", hash = "sha256:718eb58401a55a4174833ecc4cb020bcccf6ebec6a0ba969302a515ad65c8a4f"},
-]
-
-[[package]]
 name = "itsdangerous"
 version = "2.2.0"
 description = "Safely pass data to untrusted environments and back."
@@ -1029,4 +1018,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.12"
-content-hash = "cbecb8152b88b67c033611439cc5285b7aa35ff1853a4bbc9938bb47c7cc47e3"
+content-hash = "d5c55143f74e72da45ace7333ad5ecb5225df29799b3539101d5a50d90a1c2ae"

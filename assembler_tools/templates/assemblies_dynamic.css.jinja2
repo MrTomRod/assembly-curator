@@ -1,0 +1,18 @@
+{% for assembly in assemblies %}
+{% for contig_group in assembly.contig_groups %}
+{% if contig_group.cluster_color_rgb %}
+
+.{{ contig_group.id|css_escape }} {
+    --cluster-color: {{ contig_group.cluster_color_rgb }};
+}
+
+{% for contig in contig_group.contigs %}
+
+.{{ contig.id|css_escape }} {
+    --cluster-color: {{ contig_group.cluster_color_rgb }};
+}
+
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endfor %}

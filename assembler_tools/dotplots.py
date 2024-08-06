@@ -51,10 +51,10 @@ class DotplotConfig:
 
 
 def add_separators(image, draw, sep_a, sep_b, config):
-    for i in sep_a:
+    for i in sep_b:
         i = int(round(i / config.bp_per_pixel))
         draw.line([(0, i), (image.width, i)], fill=config.line_color)
-    for i in sep_b:
+    for i in sep_a:
         i = int(round(i / config.bp_per_pixel))
         draw.line([(i, 0), (i, image.height)], fill=config.line_color)
 
@@ -94,6 +94,7 @@ def format_ticks(ax, seq1, seq2, bp_per_pixel):
 
 def create_dotplots(
         cgs: [ContigGroup],
+        figsize: (int, int) = (10, 10),
         title: str = None,
         output: str = 'dotplots.png',
         kmer=12,
@@ -110,7 +111,7 @@ def create_dotplots(
 
     plt.rcParams['svg.fonttype'] = 'none'
 
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=figsize)
 
     # Calculate the total length of all sequences
     seq_lengths = [sum(len(c.sequence) for c in cg.contigs) for cg in cgs]
@@ -124,7 +125,6 @@ def create_dotplots(
 
     for i, cg_i in enumerate(cgs):
         seq1 = ''.join(c.sequence for c in cg_i.contigs)
-        print(f'>>>>>>>>>>>>>>>> {cg_i.id}: {len(seq1)}bp')
         sep1 = [0] + [len(contig.sequence) for contig in cg_i.contigs]
 
         a_forward_kmers, a_reverse_kmers = get_all_kmer_positions(config.kmer, seq1)
@@ -134,20 +134,20 @@ def create_dotplots(
 
             if i == j:
                 im, draw = create_dotplot(seq1, seq2, sep1, sep2, a_forward_kmers, a_reverse_kmers, config)
-                ax = fig.add_subplot(gs[i, j])
+                ax = fig.add_subplot(gs[i, j], gid=f'dotplot - {cg_i.id} - {cg_j.id}')
                 ax.imshow(im)
                 format_axis(ax, j, i, len(cgs), cg_i.id, cg_j.id, bp_per_pixel)
                 format_ticks(ax, seq1, seq2, bp_per_pixel)
             elif i < j:
                 # Add the dotplot to upper triangle
                 im, draw = create_dotplot(seq1, seq2, sep1, sep2, a_forward_kmers, a_reverse_kmers, config)
-                ax = fig.add_subplot(gs[j, i])
+                ax = fig.add_subplot(gs[j, i], gid=f'dotplot - {cg_j.id} - {cg_i.id}')
                 ax.imshow(im)
                 format_axis(ax, j, i, len(cgs), cg_i.id, cg_j.id, bp_per_pixel)
                 format_ticks(ax, seq1, seq2, bp_per_pixel)
 
                 # Add the dotplot to lower triangle, simply rotating it 90 degrees
-                ax = fig.add_subplot(gs[i, j])
+                ax = fig.add_subplot(gs[i, j], gid=f'dotplot - {cg_i.id} - {cg_j.id}')
                 ax.imshow(im.transpose(Image.Transpose.ROTATE_90))
                 format_axis(ax, i, j, len(cgs), cg_j.id, cg_i.id, bp_per_pixel)
                 format_ticks(ax, seq2, seq1, bp_per_pixel)
@@ -162,7 +162,6 @@ def create_dotplots(
     padding, space = 0.05, 0.1
     plt.subplots_adjust(left=padding, right=1 - padding, top=1 - padding, bottom=padding, wspace=space, hspace=space)
     plt.savefig(output, format='svg')
-    exit(0)
 
 
 def create_dotplot(

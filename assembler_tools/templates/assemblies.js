@@ -79,14 +79,11 @@ function aniMatrixGetDendrogramInfo() {
 
     const data = extractData('ani-matrix-data')
 
-    const labels1 = extractLabels('#matplotlib\\.axis_1 text')
-    const labels2 = extractLabels('#matplotlib\\.axis_2 text')
+    const labels1 = extractLabels('#matplotlib\\.axis_5 text')
+    const labels2 = extractLabels('#matplotlib\\.axis_6 text')
     if (!isIdentical(labels1, labels2)) {
-        console.error('Dendrogram label mismatch detected. The labels on both axes should be identical for accurate ' +
-            'representation. Please verify the input data or the label extraction logic.', {
-            axis1Labels: labels1,
-            axis2Labels: labels2,
-            isIdentical: isIdentical(labels1, labels2)
+        console.error('Dendrogram label mismatch detected. The labels on both axes should be identical for accurate ' + 'representation. Please verify the input data or the label extraction logic.', {
+            axis1Labels: labels1, axis2Labels: labels2, isIdentical: isIdentical(labels1, labels2)
         })
         alert('The labels on the dendrogram are not identical!')
     }
@@ -207,7 +204,7 @@ function loadDotplot(event) {
 
 /* Show popover on hover */
 function aniMatrixInitPopover(dendrogramLabels, dendrogramData) {
-    const paths = document.querySelectorAll('#QuadMesh_1 path');
+    const paths = document.querySelectorAll('#QuadMesh_3 path');
     const popoverMap = new Map();
 
     function showPopover(popover, rightClick = false) {
@@ -363,8 +360,7 @@ function makeDraggable(svg) {
     function getMousePosition(evt) {
         const CTM = selectedElement.parentElement.getCTM();
         return {
-            x: (evt.clientX - CTM.e) / CTM.a,
-            y: (evt.clientY - CTM.f) / CTM.d
+            x: (evt.clientX - CTM.e) / CTM.a, y: (evt.clientY - CTM.f) / CTM.d
         };
     }
 
@@ -396,22 +392,37 @@ function makeDraggable(svg) {
     }
 }
 
-function initGfavizPopover() {
+function gfavizInitPopover() {
     document.querySelectorAll('.gfaviz-container').forEach((gfavizContainer) => {
         const svg = gfavizContainer.querySelector('svg')
-
+        console.log(svg)
         if (!svg) return
+
+        // add 20 more pixels at the bottom: unset height and width, edit viewport
+        svg.removeAttribute('height')
+        svg.removeAttribute('width')
+        svg.setAttribute('viewBox', `0 0 ${svg.viewBox.baseVal.width} ${svg.viewBox.baseVal.height + 40}`)
+
         const assembly = gfavizContainer.getAttribute('data-assembly');
         const isDragging = makeDraggable(svg)
 
+        const uniqueTextContents = new Set();
+
         gfavizContainer.querySelectorAll('svg text').forEach((textElement) => {
+            // get contig name
+            const contigOriginalName = textElement.textContent
+            if (uniqueTextContents.has(contigOriginalName)) {
+                textElement.remove(); // The text elements are duplicated. No idea why this happens.
+                return
+            } else {
+                uniqueTextContents.add(contigOriginalName);
+            }
+
+            const contigId = `${assembly}@${contigOriginalName}`
+
             // move them to the front
             textElement.parentNode.parentNode.appendChild(textElement.parentNode);
             textElement.classList.add('draggable');
-
-            // get contig name
-            const contigOriginalName = textElement.textContent
-            const contigId = `${assembly}@${contigOriginalName}`
 
             // sometimes, a contig in the svg is not in the metadata because it was filtered out during polishing (Flye)
             if (!window.dataset.contigs[contigId]) {
@@ -428,6 +439,9 @@ function initGfavizPopover() {
             }
 
             const contigGroupId = window.dataset.contigs[contigId].contig_group
+
+            // set stroke to cluster color
+            textElement.style.stroke = sampleToCluster[contigGroupId] ? sampleToCluster[contigGroupId].color : 'gray'
 
             // set class contig and contig-<contig>
             textElement.classList.add('contig-group');
@@ -460,6 +474,24 @@ function initGfavizPopover() {
     });
 };
 
+function dotplotsInitPopover() {
+    console.log('dotplotsInitPopover')
+    document.querySelectorAll('#cluster-tabs-content svg').forEach((svg) => {
+        svg.querySelectorAll('[id^="dotplot - "]').forEach((path) => {
+            const [_, labelCol, labelRow] = path.id.split(' - ')
+            path.setAttribute('data-label-col', labelCol);
+            path.setAttribute('data-label-row', labelRow);
+
+            if (labelCol === labelRow) {
+                path.classList.add('contig-group');
+                path.setAttribute('data-cg', labelCol);
+                path.addEventListener('click', toggleContigGroup);
+            }
+
+        })
+    })
+}
+
 
 // Trigger toggleContigGroup on click on contigs in the table
 function toggleContigGroupTable() {
@@ -471,7 +503,7 @@ function toggleContigGroupTable() {
 
 function aniMatrixDeactivateAnnotations() {
     document.getElementById('ani-clustermap-container')
-        .querySelectorAll('#axes_3 > [id^="text_"]')
+        .querySelectorAll('#axes_5 > [id^="text_"]')
         .forEach((textElement) => {
             textElement.style.pointerEvents = 'none';
         });
@@ -525,14 +557,53 @@ document.getElementById('btn-curate').addEventListener('click', function () {
     // })
 })
 
+function fetchAndReplace(imgElement) {
+    /* Replace <img src=...> with fetched SVG so it can be made interactive */
+    const src = imgElement.getAttribute('src');
+    return fetch(src).then(response => response.text()).then(svg => {
+        const div = document.createElement('div');
+        div.innerHTML = svg;
+        const svgElement = div.querySelector('svg');
+        imgElement.parentNode.replaceChild(svgElement, imgElement);
+    }).catch(error => {
+        console.error(`Error fetching SVG ${src}:`, error);
+    })
+}
+
+
+function toggleDotPlotTabs() {
+    /* Hide tab content if clicked a second time */
+    let previouslySelected = undefined
+    document.querySelectorAll('#cluster-tabs .nav-link').forEach(tab => {
+        const target = document.querySelector(tab.getAttribute('data-bs-target'));
+        /* Hide tab content if clicked a second time */
+        tab.addEventListener('click', function () {
+            if (previouslySelected === target) {
+                target.classList.toggle('active');
+            } else {
+                previouslySelected = target
+            }
+        });
+    })
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     toggleContigGroupTable()
-
-    const [dendrogramLabels, dendrogramData] = aniMatrixGetDendrogramInfo();
-    aniMatrixDeactivateAnnotations()
+    toggleDotPlotTabs()
 
     metadata.then(() => {
-        aniMatrixInitPopover(dendrogramLabels, dendrogramData);
-        initGfavizPopover();
+        fetchAndReplace(document.getElementById('ani-matrix-svg')).then(() => {
+            const [dendrogramLabels, dendrogramData] = aniMatrixGetDendrogramInfo();
+            aniMatrixDeactivateAnnotations()
+            aniMatrixInitPopover(dendrogramLabels, dendrogramData);
+        })
+
+        Promise.all(Array.from(document.querySelectorAll('.gfaviz-svg')).map(fetchAndReplace)).then(() => {
+            gfavizInitPopover();
+        });
+
+        Promise.all(Array.from(document.querySelectorAll('.dotplot-svg')).map(fetchAndReplace)).then(() => {
+            dotplotsInitPopover()
+        })
     });
 });

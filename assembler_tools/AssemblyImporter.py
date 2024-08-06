@@ -3,9 +3,7 @@ import os.path
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-import gfapy
-
-from .utils import AssemblyFailedException
+from .utils import AssemblyFailedException, run_command
 from .Assembly import Assembly
 from .Contig import Contig
 from .ContigGroup import ContigGroup
@@ -88,7 +86,8 @@ class AssemblyImporter(ABC):
         return groups
 
     def create_assembly(self, groups: [[str]], contigs: {str: Contig}) -> Assembly:
-        assembly = Assembly(assembler=self.assembler, assembly_dir=self.assembly_dir, assembly = self.assembly, sample_dir=self._sample_dir)
+        assembly = Assembly(assembler=self.assembler, assembly_dir=self.assembly_dir, assembly=self.assembly,
+                            sample_dir=self._sample_dir)
         for group in groups:
             contig_group = ContigGroup()
             for segment in group:
@@ -119,8 +118,6 @@ class AssemblyImporter(ABC):
             contig.topology = 'circular' if contig.original_id in circular else 'linear'
 
     def load_gfa(self, gfa: str):
-        gfa = gfapy.Gfa.from_file(gfa)
-
         connections = {}  # {segment:  set(segment)}
         circular = set()  # {segment}
 
@@ -132,13 +129,52 @@ class AssemblyImporter(ABC):
                     if segment1 == segment2:
                         circular.add(segment1)
 
-        for line in gfa.lines:
-            if line.record_type in '#HAS':
-                pass
-            elif line.record_type in 'L':  # Link
-                connect([line.from_name], [line.to_name])
-            elif line.record_type in 'P':  # Path
-                connect([line.name], [l.name for l in line.segment_names])
-            else:
-                raise AssertionError(f'Unknown record type: {line.record_type}')
+        with open(gfa) as file:
+            for line in file:
+                parts = line.strip().split('\t')
+                record_type = parts[0]
+
+                if record_type == 'L':  # Link
+                    from_name = parts[1]
+                    to_name = parts[3]
+                    connect([from_name], [to_name])
+                elif record_type == 'P':  # Path
+                    path_name = parts[1]
+                    segment_names = [seg[:-1] for seg in parts[2].split(',')]
+                    connect([path_name], segment_names)
+                elif record_type in '#HAS':
+                    continue
+                else:
+                    logging.warning(f'Unknown gfa record type: {record_type}. '
+                                    f'Offending line (first 200 chars):\n{line[:200]}')
+
         return gfa, connections, circular
+
+    def gfa_to_svg(self, gfa: str, overwrite: bool = True, params: str = '--labels'):
+        gfa_dirname = os.path.dirname(gfa)
+        gfa_basename = os.path.basename(gfa)
+        svg_basename = f'{gfa_basename}.svg'
+
+        if os.path.isfile(os.path.join(gfa_dirname, svg_basename)):
+            if overwrite:
+                logging.info(f'Overwriting {svg_basename}')
+                os.remove(os.path.join(gfa_dirname, svg_basename))
+            else:
+                logging.info(f'Skipping {svg_basename} as it already exists')
+                return
+
+        cmd = self._gfa_to_svg_cmd(gfa_basename, svg_basename, params)
+        wrap = self._gfa_to_svg_wrap(cmd)
+        logging.info(f'Running: {wrap}')
+        return_code = run_command(wrap, cwd=gfa_dirname, shell=True)
+        assert return_code == 0 and os.path.isfile(os.path.join(gfa_dirname, svg_basename)), \
+            f'Failed to create {svg_basename}'
+
+    def _gfa_to_svg_cmd(self, gfa_basename: str, svg_basename: str, params: str = '--labels'):
+        return f'gfaviz-mrtomrod --no-gui --render {params} --output "{svg_basename}" "{gfa_basename}"'
+
+    def _gfa_to_svg_wrap(self, cmd: str):
+        return (f'podman run --rm '
+                f'-v .:/data:Z '
+                f'troder/gfaviz:latest '
+                f'{cmd}')

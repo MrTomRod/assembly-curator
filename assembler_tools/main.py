@@ -16,7 +16,7 @@ env = Environment(
     autoescape=select_autoescape(['html'])
 )
 template_overview = env.get_template('overview.html')
-template_assemblies = env.get_template('assemblies.html')
+template_assemblies = env.get_template('assemblies.html.jinja2')
 
 
 def curate_assemblies(assemblies: [Assembly]) -> Assembly:
@@ -55,7 +55,10 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
         # print(f"Final assembly for {sample}: {final_assembly}")
 
 
-def cli(samples_dir: str = './data', plugin_dir: str = None):
+DATADIR = '-pb'
+
+
+def cli(samples_dir: str = f'./data{DATADIR}', plugin_dir: str = f'./plugins{DATADIR}'):
     LOGLEVEL = os.environ.get('LOGLEVEL', 'INFO').upper()
     logging.basicConfig(level=LOGLEVEL)
 

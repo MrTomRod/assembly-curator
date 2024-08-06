@@ -15,19 +15,29 @@ from assembler_tools.utils import AssemblyFailedException, MinorAssemblyExceptio
 from assembler_tools.Assembly import Assembly
 
 
-def ani_clustermap(assemblies: [Assembly], cutoff: float = .9) -> str:
+def ani_clustermap(assemblies: [Assembly], fname: str, cutoff: float = .9) -> (pd.DataFrame, str):
     try:
-        similarity = calculate_similarity_matrix(assemblies)
-        length_matrix = calculate_length_matrix(similarity, assemblies, label_cutoff=cutoff)
-        html, linkage_matrix = plot_clustermap(
-            similarity,
-            annot=length_matrix, annot_kws={"fontsize": 6}, fmt='',
-            vmin=cutoff, vmax=1
-        )
+        similarity_matrix = calculate_similarity_matrix(assemblies)
     except MinorAssemblyException as e:
+        # todo: handle this correctly
         logging.warning(f"Failed to compute ANI matrix: {e}")
         return None, f'<p class="error">{e}</p>'
-    return similarity, html, linkage_matrix
+    length_matrix = calculate_length_matrix(similarity_matrix, assemblies, label_cutoff=cutoff)
+    sample_to_cluster = plot_clustermap(
+        similarity_matrix,
+        annot=length_matrix, annot_kws={"fontsize": 6}, fmt='',
+        vmin=cutoff, vmax=1,
+        fname=fname
+    )
+    return similarity_matrix, sample_to_cluster
+
+
+def add_cluster_info_to_assemblies(assemblies, sample_to_cluster):
+    for assembly in assemblies:
+        for contig_group in assembly.contig_groups:
+            cluster_info = sample_to_cluster[contig_group.id]
+            contig_group.cluster_id = cluster_info['cluster']
+            contig_group.set_cluster_color(*cluster_info['color'])
 
 
 def calculate_length_matrix(
@@ -84,11 +94,16 @@ def calculate_similarity_matrix(assemblies: [Assembly]):
     return similarity_matrix
 
 
-def plot_clustermap(similarity_matrix: pd.DataFrame, **kwargs) -> (str, np.ndarray):
+def plot_clustermap(similarity_matrix: pd.DataFrame, fname: str, **kwargs) -> (str, np.ndarray):
     plt.rcParams['svg.fonttype'] = 'none'
+    assert (similarity_matrix.index == similarity_matrix.columns).all(), \
+        "Similarity matrix must be square:\nindex={similarity_matrix.index}\ncolumns={similarity_matrix.columns}"
 
     # Compute the linkage matrix manually so it can be returned
     linkage_matrix = sch.linkage(similarity_matrix, method='average')
+
+    sample_to_cluster = group_by_linkage(similarity_matrix, linkage_matrix)
+    row_col_colors = [sample_to_cluster[cg]['color'] for cg in similarity_matrix.index]
 
     # Generate the clustermap
     clustermap_fig = sns.clustermap(
@@ -100,6 +115,8 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, **kwargs) -> (str, np.ndarr
         col_cluster=True,
         row_linkage=linkage_matrix,
         col_linkage=linkage_matrix,
+        row_colors=row_col_colors,
+        col_colors=row_col_colors,
         **kwargs
     )
 
@@ -114,19 +131,19 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, **kwargs) -> (str, np.ndarr
     assert svg_content[1].strip() == '', f"Unexpected content after closing svg tag: {svg_content[1]}"
     svg_content = f'{svg_content[0]}\n<script type="application/json" id="ani-matrix-data">{json_data}</script></svg>'
 
-    return svg_content, linkage_matrix
+    with open(fname, 'w') as f:
+        f.write(svg_content)
+
+    return sample_to_cluster
 
 
 def group_by_linkage(similarity_matrix, linkage_matrix: np.ndarray, threshold: float = .95) -> {int: [str]}:
     """Form flat clusters based on threshold"""
-    cluster_labels = sch.fcluster(linkage_matrix, threshold, criterion='distance')
+    cluster_group = sch.fcluster(linkage_matrix, t=threshold, criterion='distance')
+    cluster_colors = sns.color_palette('tab20', n_colors=len(set(cluster_group)))
 
-    # contig_group_to_cluster = {i: int(c) for i, c in zip(similarity_matrix.index, cluster_labels)}
-
-    clusters = {}
-    for contig_group, cluster in zip(similarity_matrix.index, cluster_labels):
-        cluster = int(cluster)  # convert np.int64 to int
-        if cluster not in clusters:
-            clusters[cluster] = []
-        clusters[cluster].append(contig_group)
-    return clusters
+    return {
+        i: {'cluster': int(g), 'color': cluster_colors[int(g) - 1]}
+        for i, g
+        in zip(similarity_matrix.index, cluster_group)
+    }

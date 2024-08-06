@@ -56,7 +56,7 @@ class Assembly:
     def pprint(self):
         print(f'#### {self} ####')
         if self.plot:
-            print(f'Plot: file:///{os.path.abspath(f'{self.assembly_dir}/{self.plot}')}')
+            print(f'Plot: file:///{os.path.abspath(f'{self._sample_dir}/{self.assembly_dir}/{self.plot}')}')
         for group in self.contig_groups:
             group.pprint()
         print(f'#### --- end --- ####\n')
@@ -66,15 +66,6 @@ class Assembly:
 
     def gc_content(self) -> float:
         return self.gc() / len(self)
-
-    def plot_svg(self):
-        if self.plot is None:
-            return None
-        try:
-            with open(f'{self._sample_dir}/{self.assembly_dir}/{self.plot}') as f:
-                return f.read()
-        except Exception as e:
-            return f'Error: {e}'
 
     def to_json(self, sequence: bool = False):
         return {

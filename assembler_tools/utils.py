@@ -1,6 +1,7 @@
 # Plugin system inspired by https://gist.github.com/dorneanu/cce1cd6711969d581873a88e0257e312
 import os
 import logging
+import subprocess
 from typing import List, Type
 from importlib import util
 from math import log, floor
@@ -70,3 +71,22 @@ def get_relative_path(overview_html: str, sample_dir: str) -> str:
     # Calculate the relative path from the overview directory to the folder
     relative_path = os.path.relpath(sample_dir, start=overview_dir)
     return relative_path
+
+
+def rgb_array_to_css(rgb_array):
+    return f"rgb({', '.join(str(int(value * 255)) for value in rgb_array)})"
+
+
+def run_command(cmd: str, **kwargs):
+    result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, **kwargs)
+    if result.returncode != 0:
+        print(f"Command failed with return code {result.returncode}")
+        print(f"stdout:\n{result.stdout.decode()}")
+        print(f"stderr:\n{result.stderr.decode()}")
+    return result.returncode
+
+
+def css_escape(s, to_escape='#@+.'):
+    for char in to_escape:
+        s = s.replace(char, f'\\{char}')
+    return s

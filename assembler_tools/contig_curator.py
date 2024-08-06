@@ -1,7 +1,9 @@
+import os.path
+
 from pywebio.output import put_text, put_markdown
 
 from assembler_tools.ContigGroup import ContigGroup, Contig
-from pywebio.input import input, FLOAT, SELECT, TEXT, select
+from pywebio.input import input, FLOAT, SELECT, TEXT, select, input_group
 
 
 def scf_names_dialact(sample_name, scf_id: int):
@@ -65,14 +67,40 @@ def create_headers(sample, contig_groups: [ContigGroup]) -> [str]:
                 contig_group=cg
             )
 
+    updated_info_ids_fwd = {str(i): contig_id for i, contig_id in enumerate(headers)}
+    updated_info_ids_rev = {contig_id: i for i, contig_id in updated_info_ids_fwd.items()}
+    updated_info = input_group("Headers", [
+        input(contig_id, name=updated_info_ids_rev[contig_id], type=TEXT, value=data['header'])
+        for contig_id, data in headers.items()])
+
+    cureated_headers = {updated_info_ids_fwd[k]: v for k, v in updated_info.items()}
+
     markdown = f'## {sample}\n```text\n'
     for contig_id, data in headers.items():
+        if cureated_headers[contig_id] != data['header']:
+            data['header'] = cureated_headers[contig_id]
         markdown += f"{data['header']}\n"
         markdown += f"{data['contig'].sequence[0:20]}...\n"
     markdown += '```'
 
     put_markdown(markdown)
+
     return headers
+
+
+def save_curated(file: str, headers: dict):
+    if os.path.isfile(file):
+        # ask if overwrite
+        overwrite = input(f"File {file} already exists. Overwrite?", type=SELECT, options=['yes', 'no'], value='yes')
+        if overwrite == 'no':
+            return
+
+    with open(file, 'w') as f:
+        for contig_id, data in headers.items():
+            f.write(f"{data['header']}\n")
+            f.write(f"{data['contig'].sequence}\n")
+
+    put_markdown(f"Saved curated contigs to {file}")
 
 
 def create_header(contig: Contig, name: str, contig_group_id: int, plasmid_name: str = None) -> str:

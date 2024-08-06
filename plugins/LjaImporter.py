@@ -16,6 +16,7 @@ class LjaImporter(AssemblyImporter):
 
     def load_assembly(self) -> Assembly:
         contigs = self.load_fasta(f"{self._assembly_dir_abs}/{self.assembly}")
+        self.gfa_to_svg(f"{self._assembly_dir_abs}/{self.gfa}")
         gfa, connections, circular = self.load_gfa(f"{self._assembly_dir_abs}/{self.gfa}")
 
         for contig in contigs:
