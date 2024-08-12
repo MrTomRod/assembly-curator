@@ -7,7 +7,7 @@ from pywebio.input import input, FLOAT, SELECT, TEXT, select, input_group
 
 
 def scf_names_dialact(sample_name, scf_id: int):
-    return f"{sample_name.rsplit('-', 1)[0]}_scf{scf_id}"
+    return f"{sample_name.rsplit('.', 1)[0]}_scf{scf_id}"
 
 
 def plasmid_names_dialact(sample_name, plasmid_id: int):

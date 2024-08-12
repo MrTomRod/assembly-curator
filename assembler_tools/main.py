@@ -55,7 +55,7 @@ def process_samples(importers: [Type[AssemblyImporter]], samples_dir: str, overv
         # print(f"Final assembly for {sample}: {final_assembly}")
 
 
-DATADIR = '-pb'
+DATADIR = ''  # '-pb'
 
 
 def cli(samples_dir: str = f'./data{DATADIR}', plugin_dir: str = f'./plugins{DATADIR}'):

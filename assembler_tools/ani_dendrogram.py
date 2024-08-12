@@ -19,7 +19,7 @@ def ani_clustermap(assemblies: [Assembly], fname: str, cutoff: float = .9) -> (p
     try:
         similarity_matrix = calculate_similarity_matrix(assemblies)
     except MinorAssemblyException as e:
-        # todo: handle this correctly
+        # todo: if only zero or one contig groups: what to do?
         logging.warning(f"Failed to compute ANI matrix: {e}")
         return None, f'<p class="error">{e}</p>'
     length_matrix = calculate_length_matrix(similarity_matrix, assemblies, label_cutoff=cutoff)
@@ -122,6 +122,7 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, fname: str, **kwargs) -> (s
 
     svg_buffer = StringIO()
     clustermap_fig.savefig(svg_buffer, format='svg')
+    plt.close()
     svg_content = svg_buffer.getvalue()
     svg_buffer.close()
 

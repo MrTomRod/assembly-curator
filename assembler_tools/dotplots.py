@@ -1,7 +1,7 @@
+import time
 import logging
 import collections
-from PIL import Image, ImageDraw, ImageFont, ImageColor
-from mpl_toolkits.axes_grid1 import ImageGrid
+from PIL import Image, ImageDraw, ImageColor
 from matplotlib import pyplot as plt, gridspec, ticker
 
 from assembler_tools.utils import human_bp
@@ -111,8 +111,6 @@ def create_dotplots(
 
     plt.rcParams['svg.fonttype'] = 'none'
 
-    fig = plt.figure(figsize=figsize)
-
     # Calculate the total length of all sequences
     seq_lengths = [sum(len(c.sequence) for c in cg.contigs) for cg in cgs]
     total_length = sum(seq_lengths)
@@ -120,39 +118,46 @@ def create_dotplots(
     # Calculate the relative width of each subplot
     relative_widths = [length / total_length for length in seq_lengths]
 
-    fig = plt.figure(figsize=(10, 10))
+    fig = plt.figure(figsize=figsize)
     gs = gridspec.GridSpec(len(cgs), len(cgs), width_ratios=relative_widths, height_ratios=relative_widths)
 
     for i, cg_i in enumerate(cgs):
         seq1 = ''.join(c.sequence for c in cg_i.contigs)
         sep1 = [0] + [len(contig.sequence) for contig in cg_i.contigs]
 
+        start_i = time.time()
         a_forward_kmers, a_reverse_kmers = get_all_kmer_positions(config.kmer, seq1)
+        diff_i = time.time() - start_i
         for j, cg_j in enumerate(cgs):
             seq2 = ''.join(c.sequence for c in cg_j.contigs)
             sep2 = [0] + [len(contig.sequence) for contig in cg_j.contigs]
 
             if i == j:
+                start_j = time.time()
                 im, draw = create_dotplot(seq1, seq2, sep1, sep2, a_forward_kmers, a_reverse_kmers, config)
                 ax = fig.add_subplot(gs[i, j], gid=f'dotplot - {cg_i.id} - {cg_j.id}')
                 ax.imshow(im)
                 format_axis(ax, j, i, len(cgs), cg_i.id, cg_j.id, bp_per_pixel)
                 format_ticks(ax, seq1, seq2, bp_per_pixel)
+                diff_j = time.time() - start_j
             elif i < j:
-                # Add the dotplot to upper triangle
+                # Add the dotplot to lower triangle
+                start_j = time.time()
                 im, draw = create_dotplot(seq1, seq2, sep1, sep2, a_forward_kmers, a_reverse_kmers, config)
                 ax = fig.add_subplot(gs[j, i], gid=f'dotplot - {cg_j.id} - {cg_i.id}')
                 ax.imshow(im)
                 format_axis(ax, j, i, len(cgs), cg_i.id, cg_j.id, bp_per_pixel)
                 format_ticks(ax, seq1, seq2, bp_per_pixel)
 
-                # Add the dotplot to lower triangle, simply rotating it 90 degrees
+                # Add the dotplot to upper triangle, simply rotating it 90 degrees
                 ax = fig.add_subplot(gs[i, j], gid=f'dotplot - {cg_i.id} - {cg_j.id}')
-                ax.imshow(im.transpose(Image.Transpose.ROTATE_90))
+                ax.imshow(im.transpose(Image.Transpose.TRANSPOSE))
                 format_axis(ax, i, j, len(cgs), cg_j.id, cg_i.id, bp_per_pixel)
                 format_ticks(ax, seq2, seq1, bp_per_pixel)
+                diff_j = time.time() - start_j
             else:
                 continue
+            print('TIMING-RRWICK:', cg_i.id, len(cg_i), cg_j.id, len(cg_j), diff_i + diff_j)
 
     del a_forward_kmers, a_reverse_kmers
 
@@ -162,6 +167,7 @@ def create_dotplots(
     padding, space = 0.05, 0.1
     plt.subplots_adjust(left=padding, right=1 - padding, top=1 - padding, bottom=padding, wspace=space, hspace=space)
     plt.savefig(output, format='svg')
+    plt.close()
 
 
 def create_dotplot(

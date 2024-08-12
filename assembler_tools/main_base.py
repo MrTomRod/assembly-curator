@@ -2,6 +2,7 @@ import os
 import shutil
 import json
 import logging
+import time
 from typing import List, Type
 
 from assembler_tools.ContigGroup import ContigGroup
@@ -9,7 +10,8 @@ from assembler_tools.utils import AssemblyFailedException, rgb_array_to_css, css
 from assembler_tools.ani_dendrogram import ani_clustermap, add_cluster_info_to_assemblies
 from assembler_tools.Assembly import Assembly
 from assembler_tools.AssemblyImporter import AssemblyImporter
-from assembler_tools.dotplots import DotplotConfig, create_dotplots
+from assembler_tools.dotplots import create_dotplots
+from assembler_tools.dotplots_minimap2 import create_dotplots as create_dotplots_minimap2
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -95,11 +97,22 @@ def create_all_dotplots(assemblies, sample_dir: str):
     for cluster_id, color in cluster_to_color.items():
         cluster_cgs = [cg for cg in cgs.values() if cg.cluster_id == cluster_id]
         length = sum(len(c) for c in cluster_cgs)
-        if length > 1_000_000:
-            print(f"Skipping cluster {cluster_id} with total length {length}")
-            continue
-        create_dotplots(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
 
+        start_mm2 = time.time()
+        create_dotplots_minimap2(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
+        delta_mm2 = time.time() - start_mm2
+
+        # if length > 1_000_000:
+        #     print(f'MM2 SPEED: {cluster_id} {length} {delta_mm2:.2f}s')
+        #     print(f"Skipping cluster {cluster_id} with total length {length}")
+        #     continue
+        # else:
+        #     start_rrwick = time.time()
+        #     create_dotplots(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.rrwick.svg'))
+        #     delta_rrwick = time.time() - start_rrwick
+        #     print(f'MM2 SPEED:    {cluster_id} {length} {delta_mm2:.2f}s')
+        #     print(f'RRWICK SPEED: {cluster_id} {length} {delta_rrwick:.2f}s')
+        #     print(f'MM2/RRWICK SPEED: {delta_mm2/delta_rrwick}')
     return cluster_to_color
 
 

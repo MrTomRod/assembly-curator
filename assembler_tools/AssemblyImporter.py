@@ -171,10 +171,16 @@ class AssemblyImporter(ABC):
             f'Failed to create {svg_basename}'
 
     def _gfa_to_svg_cmd(self, gfa_basename: str, svg_basename: str, params: str = '--labels'):
-        return f'gfaviz-mrtomrod --no-gui --render {params} --output "{svg_basename}" "{gfa_basename}"'
+        return (f'/home/thomas/PycharmProjects/assembler-tools/bin/gfaviz-mrtomrod '
+                f'--no-gui --render {params} --output "{svg_basename}" "{gfa_basename}"')
 
     def _gfa_to_svg_wrap(self, cmd: str):
-        return (f'podman run --rm '
-                f'-v .:/data:Z '
-                f'troder/gfaviz:latest '
-                f'{cmd}')
+        return cmd
+    # def _gfa_to_svg_cmd(self, gfa_basename: str, svg_basename: str, params: str = '--labels'):
+    #     return f'gfaviz-mrtomrod --no-gui --render {params} --output "{svg_basename}" "{gfa_basename}"'
+    #
+    # def _gfa_to_svg_wrap(self, cmd: str):
+    #     return (f'podman run --rm '
+    #             f'-v .:/data:Z '
+    #             f'troder/gfaviz:latest '
+    #             f'{cmd}')
