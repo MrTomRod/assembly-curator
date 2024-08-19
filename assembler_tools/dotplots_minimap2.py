@@ -1,43 +1,40 @@
+import json
 import time
 import os
-import io
+import glob
 import subprocess
 import tempfile
 from datetime import timedelta
+from turtledemo.forest import start
 
-import matplotlib.pyplot as plt
 import pandas as pd
 
+import matplotlib.pyplot as plt
+from matplotlib import pyplot as plt, gridspec, ticker
+
 from assembler_tools.utils import human_bp
+from assembler_tools.Contig import Contig
+from assembler_tools.ContigGroup import ContigGroup
+
+mnl = ticker.MaxNLocator(nbins=4, prune='upper')
+fmt = ticker.FuncFormatter(lambda x, pos: human_bp(x, decimals=0, zero_val='0'))
 
 
-def run_minimap(ref, qry, params=[]):
-    with tempfile.TemporaryDirectory() as tempdir:
-        ref_path = os.path.join(tempdir, 'ref.fna')
-        qry_path = os.path.join(tempdir, 'qry.fna')
-        outfile_path = os.path.join(tempdir, 'outfile.mm2')
+def run_minimap(ref, qry, out, params=[]):
+    # Run minimap2 with the -o option to specify the output file
+    cmd = ['/home/thomas/PycharmProjects/assembler-tools/bin/minimap2',
+           *params,
+           ref.fasta, qry.fasta,
+           '-o', out]
 
-        with open(ref_path, 'w') as ref_f, open(qry_path, 'w') as qry_f:
-            ref_f.write('>ref\n' + ref)
-            qry_f.write('>qry\n' + qry)
+    proc = subprocess.run(cmd, capture_output=True)
 
-        # Run minimap2 with the -o option to specify the output file
-        cmd = ['/home/thomas/PycharmProjects/assembler-tools/bin/minimap2',
-               *params,
-               ref_path, qry_path,
-               '-o', outfile_path]
-        minimap_out = subprocess.run(cmd, capture_output=True)
+    if proc.returncode != 0:
+        stderr = proc.stderr.decode('utf-8')
+        stdout = proc.stdout.decode('utf-8')
+        raise RuntimeError(f"minimap2 failed with return code {proc.returncode}:\n{stderr}\n{stdout}")
 
-        if minimap_out.returncode != 0:
-            stderr = minimap_out.stderr.decode('utf-8')
-            stdout = minimap_out.stdout.decode('utf-8')
-            raise RuntimeError(f"minimap2 failed with return code {minimap_out.returncode}:\n{stderr}\n{stdout}")
-
-        # Read the contents of the output file
-        with open(outfile_path, 'r') as outfile:
-            result = outfile.read()
-
-        return result, cmd
+    return cmd
 
 
 def reverse_complement(seq):
@@ -51,7 +48,7 @@ def parse_minimap_output(minimap_output):
                "numResidueMatches", "lenAln", "mapQ", "alnType"]
 
     # Read the minimap output into a pandas DataFrame
-    df = pd.read_csv(io.StringIO(minimap_output), sep='\t', header=None)
+    df = pd.read_csv(minimap_output, sep='\t', header=None)
 
     # Remove the columns that are not needed
     df = df.iloc[:, :len(columns)]
@@ -63,7 +60,13 @@ def parse_minimap_output(minimap_output):
     return df
 
 
-def create_dotplot(df, title=None, ax=None, ax2=None, sep_ref=[], sep_qry=[], show=False):
+def create_dotplot(
+        df,
+        title=None,
+        ax=None, ax2=None,
+        cg_ref: ContigGroup = None, cg_qry: ContigGroup = None,
+        show=False
+):
     if ax is None:
         fig, ax = plt.subplots(figsize=(10, 10))
 
@@ -99,14 +102,18 @@ def create_dotplot(df, title=None, ax=None, ax2=None, sep_ref=[], sep_qry=[], sh
         )
 
     # Add separators
-    for i in sep_ref:
-        ax.axvline(i, color='black', linewidth=1)
+    running_sum = 0
+    for c in cg_ref.contigs:
+        running_sum += len(c)
+        ax.axvline(running_sum, color='black', linewidth=1)
         if ax2:
-            ax2.axhline(i, color='black', linewidth=1)
-    for i in sep_qry:
-        ax.axhline(i, color='black', linewidth=1)
+            ax2.axhline(running_sum, color='black', linewidth=1)
+    running_sum = 0
+    for c in cg_qry.contigs:
+        running_sum += len(c)
+        ax.axhline(running_sum, color='black', linewidth=1)
         if ax2:
-            ax2.axvline(i, color='black', linewidth=1)
+            ax2.axvline(running_sum, color='black', linewidth=1)
 
     if title is not None:
         ax.set_xlabel('Reference Position')
@@ -118,28 +125,22 @@ def create_dotplot(df, title=None, ax=None, ax2=None, sep_ref=[], sep_qry=[], sh
     return ax
 
 
-def dotplot_minimap2(ax, ax2, ref, qry, sep_ref, sep_qry, params) -> plt.Axes:
-    ax.set_xlim(0, len(ref))
-    ax.set_ylim(0, len(qry))
+def dotplot_minimap2(ax, ax2, out, cg_ref: ContigGroup, cg_qry: ContigGroup, params) -> plt.Axes:
+    ax.set_xlim(0, len(cg_ref))
+    ax.set_ylim(0, len(cg_qry))
     ax.invert_yaxis()
 
     if ax2:
-        ax2.set_xlim(0, len(qry))
-        ax2.set_ylim(0, len(ref))
+        ax2.set_xlim(0, len(cg_qry))
+        ax2.set_ylim(0, len(cg_ref))
         ax2.invert_yaxis()
 
-    res, cmd = run_minimap(ref=ref, qry=qry, params=params)
-    df = parse_minimap_output(res)
-    return create_dotplot(df, ax=ax, ax2=ax2, sep_ref=sep_ref, sep_qry=sep_qry)
+    cmd = run_minimap(ref=cg_ref, qry=cg_qry, params=params, out=out)
+    df = parse_minimap_output(out)
+    return create_dotplot(df, ax=ax, ax2=ax2, cg_ref=cg_ref, cg_qry=cg_qry)
 
 
-from assembler_tools.ContigGroup import ContigGroup
-from matplotlib import pyplot as plt, gridspec, ticker
-
-mnl = ticker.MaxNLocator(nbins=4, prune='upper')
-
-
-def format_axis(ax, i, j, n_ctgs, x_label, y_label, bp_per_pixel):
+def format_axis(ax, i, j, n_ctgs, x_label: str, y_label: str):
     ax.yaxis.tick_right()
 
     if i == 0:
@@ -155,15 +156,8 @@ def format_axis(ax, i, j, n_ctgs, x_label, y_label, bp_per_pixel):
     ax.tick_params(axis='both', which='both', bottom=True, top=True, left=True, right=True)
 
 
-def format_ticks(ax, seq1, seq2, bp_per_pixel):
-    # Set ticks relative to bp, not pixels
-    seq1_ticks = [t / bp_per_pixel for t in mnl.tick_values(0, len(seq1))]
-    seq2_ticks = [t / bp_per_pixel for t in mnl.tick_values(0, len(seq2))]
-    ax.set_xticks(seq1_ticks)
-    ax.set_yticks(seq2_ticks)
-
+def format_ticks(ax, len_seq1, len_seq2):
     # Formatter: turn pixel into readable bp
-    fmt = ticker.FuncFormatter(lambda x, pos: human_bp(x * bp_per_pixel, decimals=0, zero_val='0'))
     ax.xaxis.set_major_formatter(fmt)
     ax.yaxis.set_major_formatter(fmt)
 
@@ -173,7 +167,7 @@ def format_ticks(ax, seq1, seq2, bp_per_pixel):
 
 
 def create_dotplots(
-        cgs: [ContigGroup],
+        workdir: str,
         figsize: (int, int) = (10, 10),
         title: str = None,
         output: str = 'dotplots.png',
@@ -194,45 +188,47 @@ def create_dotplots(
         ]
     plt.rcParams['svg.fonttype'] = 'none'
 
-    # Calculate the total length of all sequences
-    seq_lengths = [sum(len(c.sequence) for c in cg.contigs) for cg in cgs]
-    total_length = sum(seq_lengths)
+    cgs = []
+    for cg_json in glob.glob(os.path.join(workdir, '*.json')):
+        cg = ContigGroup.from_json(cg_json)
+        cg.fasta = cg_json.replace('.json', '.fasta')
+        cgs.append(cg)
+    n_cgs = len(cgs)
 
     # Calculate the relative width of each subplot
-    relative_widths = [length / total_length for length in seq_lengths]
+    total_length = sum([len(c) for c in cgs])
+    subplot_ratios = [len(c) / total_length for c in cgs]
 
     fig = plt.figure(figsize=figsize)
-    gs = gridspec.GridSpec(len(cgs), len(cgs), width_ratios=relative_widths, height_ratios=relative_widths)
+    gs = gridspec.GridSpec(n_cgs, n_cgs, width_ratios=subplot_ratios, height_ratios=subplot_ratios)
 
-    for i, cg_i in enumerate(cgs):
-        seq1 = ''.join(c.sequence for c in cg_i.contigs)
-        sep1 = [0] + [len(contig.sequence) for contig in cg_i.contigs]
-
-        for j, cg_j in enumerate(cgs):
-            seq2 = ''.join(c.sequence for c in cg_j.contigs)
-            sep2 = [0] + [len(contig.sequence) for contig in cg_j.contigs]
-
+    for i in range(n_cgs):
+        cg_i = cgs[i]
+        for j in range(n_cgs):
+            cg_j = cgs[j]
             if i == j:
-                ax = fig.add_subplot(gs[i, j], gid=f'dotplot - {cg_i.id} - {cg_j.id}')
-                start = time.time()
-                dotplot_minimap2(ax, None, seq1, seq2, sep1, sep2, params)
-                format_axis(ax, j, i, len(cgs), cg_i.id, cg_j.id, 1)
-                format_ticks(ax, seq1, seq2, 1)
-                diff = time.time() - start
+                ax = fig.add_subplot(gs[i, j], gid=f'dotplot - {cg_j.id} - {cg_i.id}')
+                # start = time.time()
+                dotplot_minimap2(ax, None, os.path.join(workdir, f'{i}-{j}.mm2'), cg_i, cg_j, params)
+                format_axis(ax, i, j, n_cgs, cg_i.id, cg_j.id)
+                format_ticks(ax, len(cg_i), len(cg_j))
+                if len(cg_j.contigs) == 1 and cg_j.contigs[0].topology == 'circular':
+                    ax.set_facecolor('lightgreen')  # circular
+                # diff = time.time() - start
             elif i < j:
                 # Add the dotplot to lower triangle
                 ax1 = fig.add_subplot(gs[j, i], gid=f'dotplot - {cg_j.id} - {cg_i.id}')
                 ax2 = fig.add_subplot(gs[i, j], gid=f'dotplot - {cg_i.id} - {cg_j.id}')
-                start = time.time()
-                dotplot_minimap2(ax1, ax2, seq1, seq2, sep1, sep2, params)
-                format_axis(ax1, j, i, len(cgs), cg_i.id, cg_j.id, 1)
-                format_ticks(ax1, seq1, seq2, 1)
-                format_axis(ax2, i, j, len(cgs), cg_j.id, cg_i.id, 1)
-                format_ticks(ax2, seq2, seq1, 1)
-                diff = time.time() - start
+                # start = time.time()
+                dotplot_minimap2(ax1, ax2, os.path.join(workdir, f'{i}-{j}.mm2'), cg_i, cg_j, params)
+                format_axis(ax1, j, i, n_cgs, cg_i.id, cg_j.id)
+                format_ticks(ax1, len(cg_i), len(cg_j))
+                format_axis(ax2, i, j, n_cgs, cg_j.id, cg_i.id)
+                format_ticks(ax2, len(cg_j), len(cg_i))
+                # diff = time.time() - start
             else:
                 continue
-            print('TIMING-MM2:', cg_i.id, len(cg_i), cg_j.id, len(cg_j), diff)
+            # print('TIMING-MM2:', cg_i.id, n_cgs, cg_j.id, len(cg_j), diff)
 
     if title:
         fig.suptitle(title, fontsize=16)
@@ -241,6 +237,11 @@ def create_dotplots(
     plt.subplots_adjust(left=padding, right=1 - padding, top=1 - padding, bottom=padding, wspace=space, hspace=space)
     plt.savefig(output, format='svg')
     plt.close()
+
+
+def process_cluster(cluster_id, workdir, dotplot_outdir):
+    create_dotplots(workdir, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
+    return cluster_id
 
 # with open('data/15_N/lja/assembly.fasta') as f:
 #     seq = f.read()

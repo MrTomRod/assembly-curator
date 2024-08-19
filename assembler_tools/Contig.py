@@ -1,3 +1,5 @@
+import json
+import os
 from functools import cached_property
 
 from .utils import human_bp
@@ -14,22 +16,24 @@ class Contig:
     location: str = None
     coverage: int = None
     additional_info: list[str] = []
+    _len = None
 
     def __init__(
             self,
             importer,
             fasta_file: str,
             original_contig_header: str,
-            sequence: str,
-            assembler: str
+            assembler: str,
+            sequence: str = None,
     ):
         self.importer = importer
         self.fasta_file = fasta_file
         self.original_contig_header = original_contig_header
         self.original_id = original_contig_header.split(' ', 1)[0].rsplit('|', 1)[-1]
         self.sequence = sequence
-        assert set(self.sequence) <= {'A', 'T', 'C', 'G'}, \
-            f'Error in {self}: Invalid characters in sequence: {set(self.sequence)}'
+        if sequence is not None:
+            assert set(self.sequence) <= {'A', 'T', 'C', 'G'}, \
+                f'Error in {self}: Invalid characters in sequence: {set(self.sequence)}'
         self.assembler = assembler
 
     @property
@@ -69,6 +73,8 @@ class Contig:
         return f'<Contig: {self.assembler}:{self.original_id} {self.len_human()} {self.topology}>'
 
     def __len__(self) -> int:
+        if self._len:
+            return self._len
         return len(self.sequence)
 
     def len_human(self) -> str:
@@ -138,3 +144,25 @@ class Contig:
         if contig_group: res['contig_group'] = contig_group
         res.update(additional_data)
         return res
+
+    @classmethod
+    def from_json(cls, data: str | dict):
+        if type(data) is str:
+            with open(data) as f:
+                data = json.load(f)
+        contig = cls(
+            importer=None,
+            fasta_file=None,
+            original_contig_header=data['original_id'],
+            sequence=None,
+            assembler=data['assembler']
+        )
+        contig.original_id = data['original_id']
+        contig._len = data.get('len', None)
+        contig.topology = data['topology']
+        contig.location = data['location']
+        contig.coverage = data['coverage']
+        contig.additional_info = data['additional_info']
+        contig.sequence = data.get('sequence', None)
+        contig.contig_group = data.get('contig_group', None)
+        return contig

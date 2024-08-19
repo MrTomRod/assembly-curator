@@ -16,12 +16,9 @@ from assembler_tools.Assembly import Assembly
 
 
 def ani_clustermap(assemblies: [Assembly], fname: str, cutoff: float = .9) -> (pd.DataFrame, str):
-    try:
-        similarity_matrix = calculate_similarity_matrix(assemblies)
-    except MinorAssemblyException as e:
-        # todo: if only zero or one contig groups: what to do?
-        logging.warning(f"Failed to compute ANI matrix: {e}")
-        return None, f'<p class="error">{e}</p>'
+    assert len(assemblies) > 0, "No assemblies to cluster!"
+    similarity_matrix = calculate_similarity_matrix(assemblies)
+
     length_matrix = calculate_length_matrix(similarity_matrix, assemblies, label_cutoff=cutoff)
     sample_to_cluster = plot_clustermap(
         similarity_matrix,
@@ -87,9 +84,6 @@ def calculate_similarity_matrix(assemblies: [Assembly]):
 
     # This similarity matrix is not always symmetric. We enforce this to get a nice diagonal after clustering.
     similarity_matrix = (similarity_matrix + similarity_matrix.T) / 2
-
-    if len(similarity_matrix) < 2:
-        raise MinorAssemblyException("Not enough contig groups to create a similarity matrix")
 
     return similarity_matrix
 

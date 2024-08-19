@@ -1,4 +1,4 @@
-import {dotplot, assembliesToPaf, loadPaf} from './dotplot.js';
+import {dotplot, assembliesToPafMinimap, loadPaf} from './dotplot.js';
 
 const metadata = fetch('assemblies.json').then(response => response.json()).then(assemblies => {
     const contigs = {}
@@ -194,7 +194,7 @@ function loadDotplot(event) {
     const fastaQry = getFasta(this.dataset.qry)
 
     Promise.all([fastaRef, fastaQry]).then(([ref, qry]) => {
-        const res = assembliesToPaf(ref, qry, 'data')
+        const res = assembliesToPafMinimap(ref, qry, 'data')
         res.then(([paf, err, cmd]) => {
             const table = loadPaf(paf)
             dotplot(table, document.getElementById('dotplot'), {title: "Dotplot from minimap2"})

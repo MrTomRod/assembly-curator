@@ -1,3 +1,6 @@
+import json
+import os.path
+
 from .utils import human_bp
 from .Contig import Contig
 
@@ -7,11 +10,14 @@ class ContigGroup:
     cluster_id: int = None
     cluster_color: (float, float, float) = None
     cluster_color_rgb: str = None
+    _len = None
 
     def __init__(self, contigs: [Contig] = None):
         self.contigs = contigs if contigs else []
 
     def __len__(self):
+        if self._len:
+            return self._len
         return sum([len(contig) for contig in self.contigs])
 
     def len_human(self) -> str:
@@ -81,3 +87,16 @@ class ContigGroup:
         }
         res.update(info)
         return res
+
+    @classmethod
+    def from_json(cls, data: str | dict):
+        if type(data) is str:
+            with open(data) as f:
+                data = json.load(f)
+        contigs = [Contig.from_json(contig_data) for contig_data in data['contigs'].values()]
+        contig_group = cls(contigs)
+        contig_group._len = data.get('len', None)
+        contig_group.cluster_id = data.get('cluster_id', None)
+        contig_group.cluster_color = data.get('cluster_color', None)
+        contig_group.cluster_color_rgb = data.get('cluster_color_rgb', None)
+        return contig_group

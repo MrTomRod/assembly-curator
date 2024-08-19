@@ -2,16 +2,18 @@ import os
 import shutil
 import json
 import logging
+import tempfile
 import time
+from textwrap import indent
 from typing import List, Type
+import multiprocessing as mp
 
 from assembler_tools.ContigGroup import ContigGroup
+from assembler_tools.dotplots_minimap2 import process_cluster
 from assembler_tools.utils import AssemblyFailedException, rgb_array_to_css, css_escape
 from assembler_tools.ani_dendrogram import ani_clustermap, add_cluster_info_to_assemblies
 from assembler_tools.Assembly import Assembly
 from assembler_tools.AssemblyImporter import AssemblyImporter
-from assembler_tools.dotplots import create_dotplots
-from assembler_tools.dotplots_minimap2 import create_dotplots as create_dotplots_minimap2
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
@@ -26,14 +28,23 @@ template_assemblies_css = env.get_template('assemblies_dynamic.css.jinja2')
 
 
 def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyImporter]]):
-    assemblies, messages = load_assemblies(sample, sample_dir, importers)
+    try:
+        assemblies, messages = load_assemblies(sample, sample_dir, importers)
+    except AssemblyFailedException as e:
+        logging.warning(str(e))
+        template_assemblies.stream(
+            messages=[e], sample=sample,
+            assemblies=[], sample_to_cluster={}, cluster_to_color={},
+        ).dump(f"{sample_dir}/assemblies.html")
+        return []
+
     similarity_matrix, sample_to_cluster = ani_clustermap(
         assemblies=assemblies,
         fname=f"{sample_dir}/ani_clustermap.svg"
     )
+    similarity_matrix.to_csv(f'{sample_dir}/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
+
     add_cluster_info_to_assemblies(assemblies, sample_to_cluster)
-    if similarity_matrix is not None:
-        similarity_matrix.to_csv(f'{sample_dir}/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
 
     cluster_to_color = create_all_dotplots(assemblies, sample_dir)
 
@@ -77,9 +88,10 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
             messages.append(e)
 
     if not assemblies:
-        msg = f"Failed to load any assemblies for {sample}"
-        logging.warning(msg)
-        messages.insert(0, msg)
+        err = f"Failed to load any assemblies for {sample}!"
+        if messages:
+            err += f"<br><br>{'<br>'.join(str(m) for m in messages)}"
+        raise AssemblyFailedException(err)
     else:
         print(f"Loaded {len(assemblies)} assemblies for {sample}")
     return assemblies, messages
@@ -91,28 +103,41 @@ def create_all_dotplots(assemblies, sample_dir: str):
     cgs = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
 
     cluster_to_color = {cg.cluster_id: cg.cluster_color for cg in cgs.values()}
-    # sort by data['cluster']
     cluster_to_color = dict(sorted(cluster_to_color.items(), key=lambda item: item[0]))
 
-    for cluster_id, color in cluster_to_color.items():
+    tmpdirs = {}
+    cluster_to_cgs = {}
+    for cluster_id in cluster_to_color:
         cluster_cgs = [cg for cg in cgs.values() if cg.cluster_id == cluster_id]
-        length = sum(len(c) for c in cluster_cgs)
+        cluster_to_cgs[cluster_id] = cluster_cgs
+        tmpdir = tempfile.TemporaryDirectory()
+        for i, cg in enumerate(cluster_cgs):
+            with open(os.path.join(tmpdir.name, f'cg_{i}.json'), 'w') as f:
+                json.dump(cg.to_json(), f, indent=4)
+            with open(os.path.join(tmpdir.name, f'cg_{i}.fasta'), 'w') as f:
+                f.write(f'>{cg.id}\n')
+                for c in cg.contigs:
+                    f.write(c.sequence)
+        tmpdirs[cluster_id] = tmpdir
 
-        start_mm2 = time.time()
-        create_dotplots_minimap2(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
-        delta_mm2 = time.time() - start_mm2
+        # start_mm2 = time.time()
+        # create_dotplots_minimap2(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
+        # delta_mm2 = time.time() - start_mm2
 
-        # if length > 1_000_000:
-        #     print(f'MM2 SPEED: {cluster_id} {length} {delta_mm2:.2f}s')
-        #     print(f"Skipping cluster {cluster_id} with total length {length}")
-        #     continue
-        # else:
-        #     start_rrwick = time.time()
-        #     create_dotplots(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.rrwick.svg'))
-        #     delta_rrwick = time.time() - start_rrwick
-        #     print(f'MM2 SPEED:    {cluster_id} {length} {delta_mm2:.2f}s')
-        #     print(f'RRWICK SPEED: {cluster_id} {length} {delta_rrwick:.2f}s')
-        #     print(f'MM2/RRWICK SPEED: {delta_mm2/delta_rrwick}')
+    # multiprocessing
+    with mp.Pool(mp.cpu_count()) as pool:
+        pool.starmap(
+            func=process_cluster,
+            iterable=[(cluster_id, tmpdirs[cluster_id].name, dotplot_outdir) for cluster_id in cluster_to_color])
+
+    # # no multiprocessing
+    # for cluster_id in cluster_to_color:
+    #     process_cluster(cluster_id, tmpdirs[cluster_id].name, dotplot_outdir)
+
+    # cleanup
+    for tmpdir in tmpdirs.values():
+        tmpdir.cleanup()
+
     return cluster_to_color
 
 

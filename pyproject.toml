@@ -18,6 +18,8 @@ seaborn = "^0.13.2"
 tornado = "^6.4.1"
 pywebio = "^1.8.3"
 flask = "^3.0.3"
+dill = "^0.3.8"
+huey = "^2.5.1"
 
 
 [build-system]

@@ -53,8 +53,8 @@ class AssemblyImporter(ABC):
                 importer=self,
                 fasta_file=fasta,
                 original_contig_header=contig_header,
+                assembler=self.assembler,
                 sequence=sequence,
-                assembler=self.assembler
             )
             contigs[contig.original_id] = contig
 

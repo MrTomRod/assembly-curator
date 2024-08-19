@@ -1,6 +1,6 @@
 # Todo
 
-- [ ] Dotplots: same order as ani-matrix
+- [ ] Dotplots: same order as ani-matrix-
 - [x] Curation: manual fixing of headers
 - [ ] Curation: write output files
   - [x] FASTA
