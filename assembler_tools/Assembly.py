@@ -67,6 +67,10 @@ class Assembly:
     def gc_content(self) -> float:
         return self.gc() / len(self)
 
+    @property
+    def atgc_count(self):
+        return {key: sum(c.atgc_count[key] for c in self.contig_groups) for key in 'ATGC'}
+
     def to_json(self, sequence: bool = False):
         return {
             'assembler': self.assembler,

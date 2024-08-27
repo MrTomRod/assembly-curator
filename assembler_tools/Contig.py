@@ -1,8 +1,8 @@
 import json
 import os
-from functools import cached_property
+from collections import Counter
 
-from .utils import human_bp
+from .utils import human_bp, invariant_atgc_count
 
 
 class Contig:
@@ -32,8 +32,10 @@ class Contig:
         self.original_id = original_contig_header.split(' ', 1)[0].rsplit('|', 1)[-1]
         self.sequence = sequence
         if sequence is not None:
-            assert set(self.sequence) <= {'A', 'T', 'C', 'G'}, \
-                f'Error in {self}: Invalid characters in sequence: {set(self.sequence)}'
+            atgc_count = {'A': 0, 'T': 0, 'G': 0, 'C': 0} | Counter(sequence)
+            assert set(atgc_count) == {'A', 'T', 'C', 'G'}, \
+                f'Error in {self}: Invalid characters in sequence: atgc_count={self.atgc_count}'
+            self.atgc_count = invariant_atgc_count(atgc_count)
         self.assembler = assembler
 
     @property
@@ -86,9 +88,9 @@ class Contig:
         if self.location:
             assert self.location in ['chromosome', 'plasmid'], f'Error in {self}: Invalid location: {self.location}'
 
-    @cached_property
+    @property
     def gc_abs(self) -> int:
-        return self.sequence.count('G') + self.sequence.count('C')
+        return self.atgc_count['G'] + self.atgc_count['C']
 
     @property
     def gc_rel(self) -> float:
@@ -126,12 +128,28 @@ class Contig:
         else:
             return template.format(coverage=f'{coverage}x', color='danger')
 
+    @property
+    def atgc_badge(self):
+        template = '<div class="badge rounded-pill bg-{color} me-1">atgc</div>'
+        # if any in self.atgc_count below 2 %: danger
+        if any([count / len(self) < 0.02 for count in self.atgc_count.values()]):
+            return template.format(color='danger')
+        # if any in self.atgc_count below 5 %: warning
+        elif any([count / len(self) < 0.05 for count in self.atgc_count.values()]):
+            return template.format(color='warning')
+        else:
+            return ''
+
+
+
+
     def to_json(self, sequence: bool = False, contig_group: str = None, additional_data: dict = {}) -> dict:
         res = {
             'id': self.id,
             'original_id': self.original_id,
             'assembler': self.assembler,
             'len': len(self),
+            'atgc_count': self.atgc_count,
             'gc_abs': self.gc_abs,
             'gc_rel': self.gc_rel,
             'coverage': self.coverage,
@@ -159,6 +177,7 @@ class Contig:
         )
         contig.original_id = data['original_id']
         contig._len = data.get('len', None)
+        contig.atgc_count = data.get('atgc_count', None)
         contig.topology = data['topology']
         contig.location = data['location']
         contig.coverage = data['coverage']

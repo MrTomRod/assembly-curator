@@ -47,8 +47,12 @@ class ContigGroup:
         self.contigs = sorted(self.contigs, key=lambda contig: len(contig), reverse=True)
 
     @property
+    def atgc_count(self):
+        return {key: sum(c.atgc_count[key] for c in self.contigs) for key in 'ATGC'}
+
+    @property
     def gc_abs(self) -> int:
-        return sum([contig.gc_abs for contig in self.contigs])
+        return self.atgc_count['G'] + self.atgc_count['C']
 
     @property
     def gc_rel(self) -> float:
@@ -79,6 +83,7 @@ class ContigGroup:
         res = {
             'id': self.id,
             'len': len(self),
+            'atgc_count': self.atgc_count,
             'gc_abs': self.gc_abs,
             'gc_rel': self.gc_rel,
             'assembler': self.assembler,

@@ -88,10 +88,10 @@ def create_headers(sample, contig_groups: [ContigGroup]) -> [str]:
     return headers
 
 
-def save_curated(file: str, headers: dict):
+def export(file: str, headers: dict):
     if os.path.isfile(file):
         # ask if overwrite
-        overwrite = input(f"File {file} already exists. Overwrite?", type=SELECT, options=['yes', 'no'], value='yes')
+        overwrite = select(f"File {file} already exists. Overwrite?", options=['yes', 'no'], value='yes')
         if overwrite == 'no':
             return
 
@@ -100,7 +100,7 @@ def save_curated(file: str, headers: dict):
             f.write(f"{data['header']}\n")
             f.write(f"{data['contig'].sequence}\n")
 
-    put_markdown(f"Saved curated contigs to {file}")
+    put_markdown(f"Saved hybrid contigs to {file}")
 
 
 def create_header(contig: Contig, name: str, contig_group_id: int, plasmid_name: str = None) -> str:

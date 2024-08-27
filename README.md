@@ -1,5 +1,10 @@
 # Todo
 
+- [ ] Expected GC-content: if below 25 or above 65 -> warning
+- [ ] Expected GC-content: if different from chromosome by more than 10 % -> warning
+- [ ] small pie chart ATGC
+- [ ] gtdb-tk matches?
+- [ ] PlasmidFinder 2.1 -> taxonomy of plasmid?
 - [ ] Dotplots: same order as ani-matrix-
 - [x] Curation: manual fixing of headers
 - [ ] Curation: write output files

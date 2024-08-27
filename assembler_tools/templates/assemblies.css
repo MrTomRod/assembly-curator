@@ -20,10 +20,18 @@ table img, table svg {
 
 table .contig-group {
     margin: 4px;
-	background: var(--cluster-color);
+    background: var(--cluster-color);
     border-width: 3px;
     border-color: var(--cluster-color);
+    display: block;
+    padding-bottom: 10px;
+    margin-bottom: 1rem;
 }
+
+.list-group-item > .btn {
+	display: block;
+}
+
 /*hover: darken*/
 table .contig-group:hover {
     background: var(--cluster-color);
@@ -105,12 +113,12 @@ table th:not(:first-child), table td:not(:first-child) {
     left: 10px;
 }
 
-#curate-div {
+#export-div {
     min-height: 50vh;
     height: 100%;
 }
 
-#curate-div iframe {
+#export-div iframe {
     width: 100%;
     height: 100%;
     min-height: inherit;
@@ -120,4 +128,33 @@ table th:not(:first-child), table td:not(:first-child) {
     --bs-popover-border-color: #721c24;
     --bs-popover-header-bg: #721c24;
     /*--bs-popover-header-color: #f8d7da;*/
+}
+
+.assembly-atgc {
+    width: 100%;
+    height: 1rem;
+    border-radius: 0.25rem;
+    margin: 0.5rem 0;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    background-image: var(--line-gradient);
+    position: relative;
+    cursor: pointer;
+}
+
+.contig-atgc {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+/* Thin line below the div */
+.contig-atgc::after {
+    content: '';
+    display: block;
+    height: 5px; /* Thin line */
+    width: 100%;
+    background-image: var(--line-gradient);
+    position: absolute;
+    bottom: -1px; /* Adjusts the position of the line below the div */
+    left: 0;
 }

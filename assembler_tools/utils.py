@@ -2,6 +2,7 @@
 import os
 import logging
 import subprocess
+import multiprocessing
 from typing import List, Type
 from importlib import util
 from math import log, floor
@@ -43,16 +44,26 @@ def load_module(path):
     return module
 
 
-def load_plugins(dir_path: str) -> List[Type['AssemblyImporter']]:
-    plugins = []
+_importers = None
+
+
+def load_importers(dir_path: str) -> List[Type['AssemblyImporter']]:
+    global _importers
+
+    if _importers is not None:
+        return _importers
+
+    print('gotta load importers... -.-')
+
+    _importers = []
     for file_name in os.listdir(dir_path):
         if file_name.endswith('.py') and not file_name.startswith('.') and not file_name.startswith('__'):
             logging.info(f"Loading plugin: {dir_path}/{file_name}")
             module_name = file_name.rstrip('.py')
             module = load_module(os.path.join(dir_path, file_name))
             assert hasattr(module, module_name), f"Plugin {module_name} does not have a class with the same name"
-            plugins.append(getattr(module, module_name))
-    return plugins
+            _importers.append(getattr(module, module_name))
+    return _importers
 
 
 def human_bp(bp: int, decimals: int = 1, zero_val='0bp') -> str:
@@ -66,7 +77,7 @@ def human_bp(bp: int, decimals: int = 1, zero_val='0bp') -> str:
 
 
 def get_relative_path(overview_html: str, sample_dir: str) -> str:
-    # Get the directory of the overview.html file
+    # Get the directory of the index.html.jinja2 file
     overview_dir = os.path.dirname(overview_html)
     # Calculate the relative path from the overview directory to the folder
     relative_path = os.path.relpath(sample_dir, start=overview_dir)
@@ -90,3 +101,25 @@ def css_escape(s, to_escape='#@+.'):
     for char in to_escape:
         s = s.replace(char, f'\\{char}')
     return s
+
+
+def detach_process(target, *args, **kwargs):
+    process = multiprocessing.Process(target=target, args=args, kwargs=kwargs)
+    process.start()
+    return process
+
+
+def invariant_atgc_count(atgc_count: dict):
+    """
+    GC content is invariant to the orientation of contigs during assembly, but ATGC counts are not.
+    If the contig is read in the forward direction, the counts are "inverted" compared to the reverse direction.
+    This function ensures that the ATGC counts are consistent regardless of the orientation.
+
+    Args:
+        atgc_count (dict): A dictionary with keys 'A', 'T', 'G', 'C' and their respective counts as values.
+
+    Returns:
+        dict: The dictionary with the lower counts of 'A' and 'G' when compared to its inverse.
+    """
+    inverse_atgc = {'A': atgc_count['T'], 'T': atgc_count['A'], 'G': atgc_count['C'], 'C': atgc_count['G']}
+    return min(atgc_count, inverse_atgc, key=lambda x: (x['A'], x['G']))

@@ -1,3 +1,4 @@
+import os
 import time
 import logging
 import collections
@@ -168,6 +169,10 @@ def create_dotplots(
     plt.subplots_adjust(left=padding, right=1 - padding, top=1 - padding, bottom=padding, wspace=space, hspace=space)
     plt.savefig(output, format='svg')
     plt.close()
+
+def process_cluster(cluster_id, workdir, dotplot_outdir):
+    create_dotplots(workdir, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
+    return cluster_id
 
 
 def create_dotplot(

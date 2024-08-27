@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import scipy.cluster.hierarchy as sch
 import seaborn as sns
+import matplotlib
 import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 import plotly.figure_factory as ff
@@ -13,6 +14,8 @@ import pyskani
 from assembler_tools import ContigGroup
 from assembler_tools.utils import AssemblyFailedException, MinorAssemblyException
 from assembler_tools.Assembly import Assembly
+
+matplotlib.use('agg')  # non-interactive backend that can only write to files
 
 
 def ani_clustermap(assemblies: [Assembly], fname: str, cutoff: float = .9) -> (pd.DataFrame, str):

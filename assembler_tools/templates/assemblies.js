@@ -1,6 +1,6 @@
 import {dotplot, assembliesToPafMinimap, loadPaf} from './dotplot.js';
 
-const metadata = fetch('assemblies.json').then(response => response.json()).then(assemblies => {
+const metadata = fetch('assembler-tools/assemblies.json').then(response => response.json()).then(assemblies => {
     const contigs = {}
     const contigGroups = {}
     // assemblies is a dictionary of assemblies {'flye': ..., 'canu': ...}
@@ -395,7 +395,6 @@ function makeDraggable(svg) {
 function gfavizInitPopover() {
     document.querySelectorAll('.gfaviz-container').forEach((gfavizContainer) => {
         const svg = gfavizContainer.querySelector('svg')
-        console.log(svg)
         if (!svg) return
 
         // add 20 more pixels at the bottom: unset height and width, edit viewport
@@ -475,7 +474,6 @@ function gfavizInitPopover() {
 };
 
 function dotplotsInitPopover() {
-    console.log('dotplotsInitPopover')
     document.querySelectorAll('#cluster-tabs-content svg').forEach((svg) => {
         svg.querySelectorAll('[id^="dotplot - "]').forEach((path) => {
             const [_, labelCol, labelRow] = path.id.split(' - ')
@@ -510,12 +508,11 @@ function aniMatrixDeactivateAnnotations() {
 }
 
 // click on #btn-curate will send the selected contigs to the server (/curate)
-document.getElementById('btn-curate').addEventListener('click', function () {
+document.getElementById('btn-export').addEventListener('click', function () {
     const payload = {
         sample: document.getElementById('sample').textContent,
         contigs: Array.from(document.querySelectorAll('#row-contigs .contig-group.selected')).map(contig => contig.getAttribute('data-cg')),
     }
-    console.log({payload})
 
     if (payload.contigs.length === 0) {
         alert('No contigs selected!')
@@ -524,37 +521,15 @@ document.getElementById('btn-curate').addEventListener('click', function () {
 
     // Add iframe to #curate-div
     // Similar to <iframe src="/curate?sample=${payload.sample}&contigs=${payload.contigs.join(',')}" title="Curate"></iframe>
-    const targetDiv = document.getElementById('curate-div')
+    const targetDiv = document.getElementById('export-div')
     const iframe = document.createElement('iframe')
 
     const encodedSample = encodeURIComponent(payload.sample);
     const encodedContigs = payload.contigs.map(contig => encodeURIComponent(contig)).join(',');
-    iframe.src = `/curate?sample=${encodedSample}&contig_groups=${encodedContigs}`;
-    iframe.title = `Curate ${payload.sample}`
+    iframe.src = `/export?sample=${encodedSample}&contig_groups=${encodedContigs}`;
+    iframe.title = `Export ${payload.sample}`
     targetDiv.innerHTML = ''
     targetDiv.appendChild(iframe)
-
-    // // forward to /curate?sample=...&contigs=...
-    // const url = new URL('/curate', window.location.origin)
-    // url.searchParams.append('sample', payload.sample)
-    // payload.contigs.forEach(contig => url.searchParams.append('contigs', payload.contigs))
-    // window.location.href = url
-
-    // // send the payload to the server
-    // fetch('/curate', {
-    //     method: 'POST',
-    //     headers: {
-    //         'Content-Type': 'application/json'
-    //     },
-    //     body: JSON.stringify(payload)
-    // }).then(response => {
-    //     if (response.ok) {
-    //         alert('The selected contigs have been sent for curation.')
-    //     } else {
-    //         console.log({response, payload})
-    //         alert('An error occurred while sending the selected contigs for curation.')
-    //     }
-    // })
 })
 
 function fetchAndReplace(imgElement) {
@@ -587,6 +562,53 @@ function toggleDotPlotTabs() {
     })
 }
 
+function calculateATGCgradient(div) {
+    // Parse the data-atgc attribute
+    const atgcData = JSON.parse(div.getAttribute('data-atgc').replace(/'/g, '"'));
+    const [a, t, g, c] = [atgcData.A, atgcData.T, atgcData.G, atgcData.C];
+    const total = a + t + g + c;
+
+    // Calculate the percentages
+    const [aRel, tRel, gRel, cRel] = [a / total * 100, t / total * 100, g / total * 100, c / total * 100];
+
+    // Calculate cumulative percentages for the conic-gradient
+    const [aEnd, tEnd, gEnd, cEnd] = [aRel, aRel + tRel, aRel + tRel + gRel, aRel + tRel + gRel + cRel];
+
+
+    // Create the linear gradient CSS value
+    const gradient = `linear-gradient(
+                to right,
+                blue 0%,         blue ${aEnd}%,
+                yellow ${aEnd}%, yellow ${tEnd}%,
+                green ${tEnd}%,  green ${gEnd}%,
+                red ${gEnd}%,    red 100%
+            )`;
+    const tooltipText = `A: ${aRel.toFixed(2)}%<br>T: ${tRel.toFixed(2)}%<br>G: ${gRel.toFixed(2)}%<br>C: ${cRel.toFixed(2)}%`;
+    return [gradient, tooltipText];
+}
+
+function applyATGCgradientAssembly(div) {
+    const [gradient, tooltipText] = calculateATGCgradient(div);
+    // Apply the gradient as the background of the div
+    div.style.setProperty('--line-gradient', gradient);
+
+    // Set up the tooltip using Bootstrap's data-bs-toggle attribute
+    div.setAttribute('data-bs-toggle', 'tooltip');
+    div.setAttribute('data-bs-html', 'true');
+    div.setAttribute('title', tooltipText);
+
+    // Initialize the tooltip
+    new bootstrap.Tooltip(div);
+}
+
+function applyATGCgradientContig(div) {
+    // Assuming calculateATGCgradient is a function that returns the gradient string
+    const [gradient, _] = calculateATGCgradient(div);
+
+    // Apply the gradient to the thin line
+    div.style.setProperty('--line-gradient', gradient);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     toggleContigGroupTable()
     toggleDotPlotTabs()
@@ -606,4 +628,7 @@ document.addEventListener('DOMContentLoaded', function () {
             dotplotsInitPopover()
         })
     });
+
+    document.querySelectorAll('.assembly-atgc').forEach(applyATGCgradientAssembly);
+    document.querySelectorAll('.contig-atgc').forEach(applyATGCgradientContig);
 });

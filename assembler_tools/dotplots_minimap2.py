@@ -9,6 +9,7 @@ from turtledemo.forest import start
 
 import pandas as pd
 
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import pyplot as plt, gridspec, ticker
 
@@ -16,6 +17,7 @@ from assembler_tools.utils import human_bp
 from assembler_tools.Contig import Contig
 from assembler_tools.ContigGroup import ContigGroup
 
+matplotlib.use('agg')  # non-interactive backend that can only write to files
 mnl = ticker.MaxNLocator(nbins=4, prune='upper')
 fmt = ticker.FuncFormatter(lambda x, pos: human_bp(x, decimals=0, zero_val='0'))
 

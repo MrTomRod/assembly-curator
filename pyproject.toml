@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "assembler-tools"
 version = "0.0.0"
-description = "Assembler Tools is a Python automation tool for genome assembly comparison and curation. It can be configured easily to work with different assemblers and features a web-based UI for easy comparison of assembly graphs and allows users to select the best assembly or create a hybrid one. The final output is a curated assembly compatible with NCBI PGAP standards."
+description = "Assembler Tools is a Python automation tool for genome assembly comparison and curation. It can be configured easily to work with different assemblers and features a web-based UI for easy comparison of assembly graphs and allows users to select the best assembly or create a hybrid one. The final output is a hybrid assembly compatible with NCBI PGAP standards."
 authors = ["MrTomRod <roder.thomas@gmail.com>"]
 license = "MIT"
 readme = "README.md"

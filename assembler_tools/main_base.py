@@ -10,6 +10,7 @@ import multiprocessing as mp
 
 from assembler_tools.ContigGroup import ContigGroup
 from assembler_tools.dotplots_minimap2 import process_cluster
+# from assembler_tools.dotplots_rrwick import process_cluster
 from assembler_tools.utils import AssemblyFailedException, rgb_array_to_css, css_escape
 from assembler_tools.ani_dendrogram import ani_clustermap, add_cluster_info_to_assemblies
 from assembler_tools.Assembly import Assembly
@@ -22,12 +23,30 @@ env = Environment(
     autoescape=select_autoescape(['html'])
 )
 env.filters['css_escape'] = css_escape
-template_overview = env.get_template('overview.html')
+template_overview = env.get_template('index.html.jinja2')
 template_assemblies = env.get_template('assemblies.html.jinja2')
 template_assemblies_css = env.get_template('assemblies_dynamic.css.jinja2')
 
 
-def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyImporter]]):
+def process_sample(
+        sample: str,
+        sample_dir: str,
+        importers: List[Type[AssemblyImporter]],
+        raise_error: bool = False,
+        force_rerun: bool = False
+) -> [Assembly]:
+    if force_rerun:
+        shutil.rmtree(f"{sample_dir}/assembler-tools")
+    elif os.path.exists(f"{sample_dir}/assembler-tools"):
+        msg = f"Sample {sample} is already being processed!"
+        if raise_error:
+            raise AssertionError(msg)
+        else:
+            logging.info(msg)
+            return
+
+    os.makedirs(f"{sample_dir}/assembler-tools")
+
     try:
         assemblies, messages = load_assemblies(sample, sample_dir, importers)
     except AssemblyFailedException as e:
@@ -40,9 +59,9 @@ def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyIm
 
     similarity_matrix, sample_to_cluster = ani_clustermap(
         assemblies=assemblies,
-        fname=f"{sample_dir}/ani_clustermap.svg"
+        fname=f"{sample_dir}/assembler-tools/ani_clustermap.svg"
     )
-    similarity_matrix.to_csv(f'{sample_dir}/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
+    similarity_matrix.to_csv(f'{sample_dir}/assembler-tools/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
 
     add_cluster_info_to_assemblies(assemblies, sample_to_cluster)
 
@@ -50,7 +69,7 @@ def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyIm
 
     json_data = {assembly.assembler: assembly.to_json() for assembly in assemblies}
 
-    with open(f"{sample_dir}/assemblies.json", 'w') as f:
+    with open(f"{sample_dir}/assembler-tools/assemblies.json", 'w') as f:
         json.dump(json_data, f, indent=2)
 
     for contig in sample_to_cluster:
@@ -66,7 +85,7 @@ def process_sample(sample: str, sample_dir: str, importers: List[Type[AssemblyIm
 
     template_assemblies_css.stream(
         assemblies=assemblies
-    ).dump(f"{sample_dir}/assemblies_dynamic.css")
+    ).dump(f"{sample_dir}/assembler-tools/assemblies_dynamic.css")
 
     return assemblies
 
@@ -98,7 +117,7 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
 
 
 def create_all_dotplots(assemblies, sample_dir: str):
-    dotplot_outdir = os.path.join(sample_dir, 'dotplots')
+    dotplot_outdir = os.path.join(sample_dir, 'assembler-tools', 'dotplots')
     os.makedirs(dotplot_outdir, exist_ok=True)
     cgs = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
 
@@ -124,15 +143,15 @@ def create_all_dotplots(assemblies, sample_dir: str):
         # create_dotplots_minimap2(cluster_cgs, output=os.path.join(dotplot_outdir, f'{cluster_id}.svg'))
         # delta_mm2 = time.time() - start_mm2
 
-    # multiprocessing
-    with mp.Pool(mp.cpu_count()) as pool:
-        pool.starmap(
-            func=process_cluster,
-            iterable=[(cluster_id, tmpdirs[cluster_id].name, dotplot_outdir) for cluster_id in cluster_to_color])
-
-    # # no multiprocessing
-    # for cluster_id in cluster_to_color:
-    #     process_cluster(cluster_id, tmpdirs[cluster_id].name, dotplot_outdir)
+    MULTIPROCESSING = os.environ.get('MULTIPROCESSING_DOTPLOTS', 'FALSE').lower() == 'true'
+    if MULTIPROCESSING:
+        with mp.Pool(mp.cpu_count()) as pool:
+            pool.starmap(
+                func=process_cluster,
+                iterable=[(cluster_id, tmpdirs[cluster_id].name, dotplot_outdir) for cluster_id in cluster_to_color])
+    else:
+        for cluster_id in cluster_to_color:
+            process_cluster(cluster_id, tmpdirs[cluster_id].name, dotplot_outdir)
 
     # cleanup
     for tmpdir in tmpdirs.values():
