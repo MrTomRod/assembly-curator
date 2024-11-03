@@ -3,7 +3,8 @@ import os
 import logging
 import subprocess
 import multiprocessing
-from typing import List, Type
+from email.policy import default
+from typing import List, Type, Callable
 from importlib import util
 from math import log, floor
 from typing import TYPE_CHECKING
@@ -45,25 +46,49 @@ def load_module(path):
 
 
 _importers = None
+_get_custom_html = None
 
 
-def load_importers(dir_path: str) -> List[Type['AssemblyImporter']]:
+def load_importers(plugins_dir: str) -> List[Type['AssemblyImporter']]:
     global _importers
 
     if _importers is not None:
         return _importers
 
-    print('gotta load importers... -.-')
-
     _importers = []
-    for file_name in os.listdir(dir_path):
-        if file_name.endswith('.py') and not file_name.startswith('.') and not file_name.startswith('__'):
-            logging.info(f"Loading plugin: {dir_path}/{file_name}")
+    for file_name in os.listdir(plugins_dir):
+        if file_name.endswith('Importer.py') and not file_name.startswith('.') and not file_name.startswith('__'):
+            logging.info(f"Loading plugin: {plugins_dir}/{file_name}")
             module_name = file_name.rstrip('.py')
-            module = load_module(os.path.join(dir_path, file_name))
-            assert hasattr(module, module_name), f"Plugin {module_name} does not have a class with the same name"
+            module = load_module(os.path.join(plugins_dir, file_name))
+            if not hasattr(module, module_name):
+                raise ModuleNotFoundError(f"Plugin {module_name} does not have a class with the same name")
             _importers.append(getattr(module, module_name))
     return _importers
+
+
+def load_get_custom_html(plugins_dir: str) -> Callable:
+    global _get_custom_html
+
+    if _get_custom_html is not None:
+        return _get_custom_html
+
+    # Construct the path to the get_custom_html.py file
+    file_path = os.path.join(plugins_dir, 'get_custom_html.py')
+
+    if not os.path.isfile(file_path):
+        logging.info(f"No get_custom_html.py found in {plugins_dir}, skipping.")
+        # default: simply write return name of the sample
+        return lambda sample: sample
+
+    try:
+        # Load the function get_custom_html from the file
+        module = load_module(file_path)
+        _get_custom_html = module.get_custom_html
+    except Exception as e:
+        raise ModuleNotFoundError(f"Error loading get_custom_html from {file_path}: {e}")
+
+    return _get_custom_html
 
 
 def human_bp(bp: int, decimals: int = 1, zero_val='0bp') -> str:

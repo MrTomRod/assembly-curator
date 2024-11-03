@@ -3,29 +3,32 @@ import shutil
 import json
 import logging
 import tempfile
-import time
-from textwrap import indent
 from typing import List, Type
 import multiprocessing as mp
+import importlib.resources as pkg_resources
 
-from assembler_tools.ContigGroup import ContigGroup
-from assembler_tools.dotplots_minimap2 import process_cluster
-# from assembler_tools.dotplots_rrwick import process_cluster
-from assembler_tools.utils import AssemblyFailedException, rgb_array_to_css, css_escape
-from assembler_tools.ani_dendrogram import ani_clustermap, add_cluster_info_to_assemblies
-from assembler_tools.Assembly import Assembly
-from assembler_tools.AssemblyImporter import AssemblyImporter
+from assembly_curator.ContigGroup import ContigGroup
+from assembly_curator.dotplots_minimap2 import process_cluster
+# from assembly_curator.dotplots_rrwick import process_cluster
+from assembly_curator.utils import AssemblyFailedException, rgb_array_to_css, css_escape
+from assembly_curator.ani_dendrogram import ani_clustermap, add_cluster_info_to_assemblies
+from assembly_curator.Assembly import Assembly
+from assembly_curator.AssemblyImporter import AssemblyImporter
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 env = Environment(
-    loader=PackageLoader('assembler_tools', 'templates'),
+    loader=PackageLoader('assembly_curator', 'templates'),
     autoescape=select_autoescape(['html'])
 )
 env.filters['css_escape'] = css_escape
 template_overview = env.get_template('index.html.jinja2')
 template_assemblies = env.get_template('assemblies.html.jinja2')
 template_assemblies_css = env.get_template('assemblies_dynamic.css.jinja2')
+
+# Load default GC-content thresholds (os.environ)
+GC_LOW = float(os.environ.get('GC_LOW', '25')) / 100
+GC_HIGH = float(os.environ.get('GC_HIGH', '65')) / 100
 
 
 def process_sample(
@@ -36,16 +39,16 @@ def process_sample(
         force_rerun: bool = False
 ) -> [Assembly]:
     if force_rerun:
-        shutil.rmtree(f"{sample_dir}/assembler-tools")
-    elif os.path.exists(f"{sample_dir}/assembler-tools"):
+        shutil.rmtree(f"{sample_dir}/assembly-curator")
+    elif os.path.exists(f"{sample_dir}/assembly-curator"):
         msg = f"Sample {sample} is already being processed!"
         if raise_error:
             raise AssertionError(msg)
         else:
             logging.info(msg)
-            return
+            return []
 
-    os.makedirs(f"{sample_dir}/assembler-tools")
+    os.makedirs(f"{sample_dir}/assembly-curator")
 
     try:
         assemblies, messages = load_assemblies(sample, sample_dir, importers)
@@ -59,9 +62,9 @@ def process_sample(
 
     similarity_matrix, sample_to_cluster = ani_clustermap(
         assemblies=assemblies,
-        fname=f"{sample_dir}/assembler-tools/ani_clustermap.svg"
+        fname=f"{sample_dir}/assembly-curator/ani_clustermap.svg"
     )
-    similarity_matrix.to_csv(f'{sample_dir}/assembler-tools/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
+    similarity_matrix.to_csv(f'{sample_dir}/assembly-curator/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
 
     add_cluster_info_to_assemblies(assemblies, sample_to_cluster)
 
@@ -69,7 +72,7 @@ def process_sample(
 
     json_data = {assembly.assembler: assembly.to_json() for assembly in assemblies}
 
-    with open(f"{sample_dir}/assembler-tools/assemblies.json", 'w') as f:
+    with open(f"{sample_dir}/assembly-curator/assemblies.json", 'w') as f:
         json.dump(json_data, f, indent=2)
 
     for contig in sample_to_cluster:
@@ -85,12 +88,17 @@ def process_sample(
 
     template_assemblies_css.stream(
         assemblies=assemblies
-    ).dump(f"{sample_dir}/assembler-tools/assemblies_dynamic.css")
+    ).dump(f"{sample_dir}/assembly-curator/assemblies_dynamic.css")
 
     return assemblies
 
 
-def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyImporter]]) -> ([Assembly], [str]):
+def load_assemblies(
+        sample: str,
+        sample_dir: str,
+        importers: List[Type[AssemblyImporter]],
+        only_one: bool = False
+) -> ([Assembly], [str]):
     print(f"Processing {sample}")
 
     assemblies: [Assembly] = []
@@ -102,6 +110,8 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
             assembly = importer.load_assembly()
             assemblies.append(assembly)
             assembly.pprint()
+            if only_one:
+                return [assembly]
         except AssemblyFailedException as e:
             logging.warning(str(e))
             messages.append(e)
@@ -113,16 +123,30 @@ def load_assemblies(sample: str, sample_dir: str, importers: List[Type[AssemblyI
         raise AssemblyFailedException(err)
     else:
         print(f"Loaded {len(assemblies)} assemblies for {sample}")
+
+    # Add warning if in GC-content is below GC_LOW or above GC_HIGH
+    for assembly in assemblies:
+        for cg in assembly.contig_groups:
+            for contig in cg.contigs:
+                if contig.gc_rel < GC_LOW:
+                    messages.append(AssemblyFailedException(
+                        f"GC content below {GC_LOW * 100:.2f} ({contig.gc_rel * 100:.2f}%) for {contig.id}"))
+                elif contig.gc_rel > GC_HIGH:
+                    messages.append(AssemblyFailedException(
+                        f"High GC content above {GC_HIGH * 100:.2f} ({contig.gc_rel * 100:.2f}%) for {contig.id}"))
+
     return assemblies, messages
 
 
 def create_all_dotplots(assemblies, sample_dir: str):
-    dotplot_outdir = os.path.join(sample_dir, 'assembler-tools', 'dotplots')
+    dotplot_outdir = os.path.join(sample_dir, 'assembly-curator', 'dotplots')
     os.makedirs(dotplot_outdir, exist_ok=True)
     cgs = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
 
     cluster_to_color = {cg.cluster_id: cg.cluster_color for cg in cgs.values()}
     cluster_to_color = dict(sorted(cluster_to_color.items(), key=lambda item: item[0]))
+
+    # return cluster_to_color
 
     tmpdirs = {}
     cluster_to_cgs = {}
@@ -161,28 +185,16 @@ def create_all_dotplots(assemblies, sample_dir: str):
 
 
 def prepare_website(samples_dir: str, link: bool = True):
-    def link(src, dst):
+    def copy_or_link(src, dst):
         if os.path.isfile(dst):
             os.remove(dst)
-        os.link(src, dst)
+        if link:
+            os.link(src, dst)
+        else:
+            shutil.copy(src, dst)
 
-    copy_or_link = link if link else shutil.copy
-
-    # Add dotplot.js
-    copy_or_link(
-        os.path.join('/home/thomas/PycharmProjects/dotplot.js/dotplot.js'),
-        f"{samples_dir}/dotplot.js"
-    )
-    # use link instead
-
-    # Add assemblies.css
-    copy_or_link(
-        os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.css'),
-        f"{samples_dir}/assemblies.css"
-    )
-
-    # Add assemblies.js
-    copy_or_link(
-        os.path.join(os.path.dirname(__file__), 'templates', 'assemblies.js'),
-        f"{samples_dir}/assemblies.js"
-    )
+    files_to_copy = ['dotplot.js', 'assemblies.css', 'assemblies.js']
+    for file_name in files_to_copy:
+        with pkg_resources.path('assembly_curator.templates', file_name) as src:
+            dst = os.path.join(samples_dir, file_name)
+            copy_or_link(src, dst)

@@ -5,8 +5,8 @@ import collections
 from PIL import Image, ImageDraw, ImageColor
 from matplotlib import pyplot as plt, gridspec, ticker
 
-from assembler_tools.utils import human_bp
-from assembler_tools.ContigGroup import ContigGroup
+from assembly_curator.utils import human_bp
+from assembly_curator.ContigGroup import ContigGroup
 
 mnl = ticker.MaxNLocator(nbins=4, prune='upper')
 

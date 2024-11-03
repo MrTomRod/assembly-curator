@@ -5,7 +5,6 @@ import glob
 import subprocess
 import tempfile
 from datetime import timedelta
-from turtledemo.forest import start
 
 import pandas as pd
 
@@ -13,22 +12,18 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import pyplot as plt, gridspec, ticker
 
-from assembler_tools.utils import human_bp
-from assembler_tools.Contig import Contig
-from assembler_tools.ContigGroup import ContigGroup
+from assembly_curator.utils import human_bp
+from assembly_curator.Contig import Contig
+from assembly_curator.ContigGroup import ContigGroup
 
-matplotlib.use('agg')  # non-interactive backend that can only write to files
+matplotlib.use('SVG')
 mnl = ticker.MaxNLocator(nbins=4, prune='upper')
 fmt = ticker.FuncFormatter(lambda x, pos: human_bp(x, decimals=0, zero_val='0'))
 
 
 def run_minimap(ref, qry, out, params=[]):
     # Run minimap2 with the -o option to specify the output file
-    cmd = ['/home/thomas/PycharmProjects/assembler-tools/bin/minimap2',
-           *params,
-           ref.fasta, qry.fasta,
-           '-o', out]
-
+    cmd = ['minimap2', *params, ref.fasta, qry.fasta, '-o', out]
     proc = subprocess.run(cmd, capture_output=True)
 
     if proc.returncode != 0:
@@ -67,10 +62,11 @@ def create_dotplot(
         title=None,
         ax=None, ax2=None,
         cg_ref: ContigGroup = None, cg_qry: ContigGroup = None,
+        figsize: tuple[int | float, int | float] = (10, 10),
         show=False
 ):
     if ax is None:
-        fig, ax = plt.subplots(figsize=(10, 10))
+        fig, ax = plt.subplots(figsize=figsize)
 
     def plot_one_ax(rs, re, qs, qe, color, linewidth):
         ax.plot(
@@ -173,6 +169,7 @@ def create_dotplots(
         figsize: (int, int) = (10, 10),
         title: str = None,
         output: str = 'dotplots.png',
+        # todo: what is this?
         kmer=12,
         bp_per_pixel: float = 17.651,
         background_colour='white',

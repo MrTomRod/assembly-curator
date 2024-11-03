@@ -1,9 +1,9 @@
 import logging
 import pandas as pd
-from assembler_tools.utils import AssemblyFailedException
-from assembler_tools.AssemblyImporter import AssemblyImporter
-from assembler_tools.Assembly import Assembly
-from assembler_tools.Contig import Contig
+from assembly_curator.utils import AssemblyFailedException
+from assembly_curator.AssemblyImporter import AssemblyImporter
+from assembly_curator.Assembly import Assembly
+from assembly_curator.Contig import Contig
 
 
 class FlyeImporter(AssemblyImporter):
@@ -17,11 +17,11 @@ class FlyeImporter(AssemblyImporter):
         contigs = self.load_fasta(f"{self._assembly_dir_abs}/{self.assembly}")
         self.gfa_to_svg(
             gfa=f"{self._assembly_dir_abs}/{self.gfa}",
-            params='--group-labels '
-                   '--group-colors black '
-                   '--group-width 0 '
-                   '--label-outline-width 0 '
-                   '--label-outline-color transparent'
+            params=['--group-labels',
+                    '--group-colors', 'black',
+                    '--group-width', '0',
+                    '--label-outline-width', '0',
+                    '--label-outline-color', 'transparent']
         )
         gfa, connections, circular = self.load_gfa(f"{self._assembly_dir_abs}/{self.gfa}")
 

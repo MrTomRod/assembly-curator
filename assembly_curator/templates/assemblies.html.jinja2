@@ -22,13 +22,19 @@
 
     <link href="../assemblies.css" rel="stylesheet">
     <script type="module" src="../assemblies.js"></script>
-    <link href="assembler-tools/assemblies_dynamic.css" rel="stylesheet">
+    <link href="assembly-curator/assemblies_dynamic.css" rel="stylesheet">
     <!--    <script type="module" crossorigin src="../dotplot.js"></script>-->
 </head>
 
 <body>
 
-<div class="container text-center">
+
+<div class="zoom-controls">
+    <button class="zoom-button" id="ani-zoom-in">Zoom In +</button>
+    <button class="zoom-button" id="ani-zoom-out">Zoom Out -</button>
+</div>
+
+<div class="text-center">
 
     <h1 id="sample">{{ sample }}</h1>
 
@@ -41,11 +47,10 @@
     <h2>ANI matrix</h2>
 
     <div id="ani-clustermap-container">
-        <img id="ani-matrix-svg" src="assembler-tools/ani_clustermap.svg" alt="ANI clustermap">
+        <img id="ani-matrix-svg" src="assembly-curator/ani_clustermap.svg" alt="ANI clustermap">
     </div>
 
 </div>
-
 
 <div class="container text-center dotplots">
     <h2>Dotplots for clusters</h2>
@@ -65,7 +70,7 @@
         {% for cluster_id in cluster_to_color %}
             <div class="tab-pane fade" id="cluster-{{ cluster_id }}-tab-pane" role="tabpanel"
                  aria-labelledby="cluster-{{ cluster_id }}-tab" tabindex="0">
-                <img class="dotplot-svg" src="assembler-tools/dotplots/{{ cluster_id }}.svg">
+                <img class="dotplot-svg" src="assembly-curator/dotplots/{{ cluster_id }}.svg">
             </div>
         {% endfor %}
     </div>
@@ -130,62 +135,70 @@
                         {% for contig_group in assembly.contig_groups %}
                             {% if contig_group.contigs.__len__() == 1 %}
                                 {% for contig in contig_group.contigs %}
-                                    <div class="contig-group btn btn-secondary position-relative contig-atgc {{ contig.id }} {{ contig_group.id }}"
-                                         data-cg="{{ contig_group.id }}"
-                                         data-atgc="{{ contig.atgc_count }}">
-                                        {{ contig.original_id }} ({{ contig.len_human() }})
-                                        <span class="position-absolute top-0 start-100 translate-middle-custom">
+                                    <div class="contig-group btn-group {{ contig.id }} {{ contig_group.id }}"
+                                         role="group"
+                                         data-cg="{{ contig_group.id }}">
+                                        <div class="btn btn-secondary cluster-indicator">
+                                            C{{ contig_group.cluster_id }}
+                                        </div>
+                                        <div class="btn btn-secondary contig-indicator">
+                                            {{ contig.original_id }} ({{ contig.len_human() }})
+                                            <span class="position-absolute top-0 start-100 translate-middle-custom">
                                             <div class="d-flex">
                                               {{ contig.atgc_badge|safe }}
                                               {{ contig.topology_badge|safe }}
                                               {% if contig.has_coverage %}{{ contig.coverage_badge|safe }}{% endif %}
                                             </div>
                                         </span>
+                                        </div>
+                                        <div class="btn btn-secondary atgc-indicator"
+                                             data-atgc="{{ contig.atgc_count }}"></div>
                                     </div>
                                 {% endfor %}
                             {% else %}
                                 <div class="contig-group card {{ contig_group.id }}" data-cg="{{ contig_group.id }}">
-                                <div class="card-header">
-                                    Group: {{ contig_group.id }} ({{ contig_group.len_human() }})
+                                    <div class="card-header">
+                                        Group: {{ contig_group.id }} ({{ contig_group.len_human() }})
+                                    </div>
+                                    <ul class="list-group list-group-flush">
+                                        <li class="list-group-item">
+                                            {% for contig in contig_group.contigs %}
+                                                <div class="btn btn-secondary position-relative {{ contig.id }} contig-atgc"
+                                                     data-atgc="{{ contig.atgc_count }}">
+                                                    {{ contig.original_id }} ({{ contig.len_human() }})
+                                                    <span class="position-absolute top-0 start-100 translate-middle-custom">
+            <div class="d-flex">
+              {{ contig.atgc_badge|safe }}
+              {{ contig.topology_badge|safe }}
+              {% if contig.has_coverage %}{{ contig.coverage_badge|safe }}{% endif %}
+            </div>
+        </span>
+                                                </div>
+                                            {% endfor %}
+                                        </li>
+                                    </ul>
                                 </div>
-                                <ul class="list-group list-group-flush">
-                                    <li class="list-group-item">
-                                        {% for contig in contig_group.contigs %}
-                                            <div class="btn btn-secondary position-relative {{ contig.id }} contig-atgc"
-                                                 data-atgc="{{ contig.atgc_count }}">
-                                                {{ contig.original_id }} ({{ contig.len_human() }})
-                                                <span class="position-absolute top-0 start-100 translate-middle-custom">
-                                        <div class="d-flex">
-                                          {{ contig.atgc_badge|safe }}
-                                          {{ contig.topology_badge|safe }}
-                                          {% if contig.has_coverage %}{{ contig.coverage_badge|safe }}{% endif %}
-                                        </div>
-                                      </span>
-                                            </div>
-                                        {% endfor %}
-                                    </li>
-                                </ul>
                             {% endif %}
 
-                        </div>
                             </div>
                         {% endfor %}
+                </div>
                 </td>
             {% endfor %}
-        </tr>
-        <tr>
+</tr>
+<tr>
 
-        <tr>
-            <th scope="row">Plot</th>
-            {% for assembly in assemblies %}
-                <td class="gfaviz-container" data-assembly="{{ assembly.assembler }}">
-                    <img class="gfaviz-svg" src="{{ assembly.assembly_dir }}/{{ assembly.plot }}"
-                         alt="no assembly graph available">
-                </td>
-            {% endfor %}
-        </tr>
+<tr>
+    <th scope="row">Plot</th>
+    {% for assembly in assemblies %}
+        <td class="gfaviz-container" data-assembly="{{ assembly.assembler }}">
+            <img class="gfaviz-svg" src="{{ assembly.assembly_dir }}/{{ assembly.plot }}"
+                 alt="no assembly graph available">
+        </td>
+    {% endfor %}
+</tr>
 
-    </table>
+</table>
 </div>
 
 <div class="container text-center">

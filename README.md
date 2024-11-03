@@ -1,18 +1,47 @@
+# Assembly Curator: Automated Comparison and Selection Tool for Bacterial Genome Assemblies
+
+This tool streamlines the process of comparing and selecting the best bacterial genome assembly from multiple assemblers
+such as Flye, hifiasm, PacBio SMRTtools, and LJA. By supporting a flexible plugin system, it can handle various output
+formats—including FASTA, GFA, and non-standard types—and is adaptable to future assemblers and file formats.
+
+# weird stuff
+spooky lja contigs:
+  [FAM27700-lja-8.fasta](../../Downloads/FAM27700-lja-8.fasta)
+  [FAM25886-lja-12.fasta](../../Downloads/FAM25886-lja-12.fasta)
+  [FAM25181-lja-8.fasta](../../Downloads/FAM25181-lja-8.fasta)
+  [FAM25180-lja-6.fasta](../../Downloads/FAM25180-lja-6.fasta)
+  [FAM25180-lja-4.fasta](../../Downloads/FAM25180-lja-4.fasta)
+  [FAM23202-lja-2.fasta](../../Downloads/FAM23202-lja-2.fasta)
+  [FAM22009-lja-6.fasta](../../Downloads/FAM22009-lja-6.fasta)
+  [FAM21963-lja-1.fasta](../../Downloads/FAM21963-lja-1.fasta)
+  [FAM21963-lja-7.fasta](../../Downloads/FAM21963-lja-7.fasta)
+  [FAM17935-lja-6.fasta](../../Downloads/FAM17935-lja-6.fasta)
+  [FAM17993-lja-10.fasta](../../Downloads/FAM17993-lja-10.fasta)
+
 # Todo
 
+- [ ] Button: blast random 500 bp on NCBI? Or at least copy to clipboard?
+  - https://blast.ncbi.nlm.nih.gov/doc/blast-help/urlapi.html
+- [ ] Dotplot interpretation
+  tutorial: https://resources.qiagenbioinformatics.com/manuals/clcgenomicsworkbench/650/Examples_interpretations_dot_plots.html
+- [ ] Noam: _L. helveticus_ might be a more interesting example because it's more complex
+- [ ] assemblies.html: link to folder, reset sample button, show files per assembly
+- [ ] Dotplots: same order as ANI-matrix
+- [ ] overview.html: click on sample updates icon to loading icon
+- [ ] Hover on dotplots to show conting names and metadata like ANI matrix
+- [ ] Context menus for contigs: show sequence
 - [ ] Expected GC-content: if below 25 or above 65 -> warning
 - [ ] Expected GC-content: if different from chromosome by more than 10 % -> warning
-- [ ] small pie chart ATGC
+- [x] small pie chart ATGC
 - [ ] gtdb-tk matches?
 - [ ] PlasmidFinder 2.1 -> taxonomy of plasmid?
-- [ ] Dotplots: same order as ani-matrix-
 - [x] Curation: manual fixing of headers
 - [ ] Curation: write output files
-  - [x] FASTA
-  - [ ] GFA?
+    - [x] FASTA
+    - [ ] GFA?
 - [x] Coverage
 - [x] gfapy issue: https://github.com/ggonnella/gfapy/issues/31
-  - [x] replace gfapy
+    - [x] replace gfapy
 - [ ] Autosolve easy cases
 - [ ] Dotplot: ani-matrix -> dotplot; whole assembly dotplot ("I forgot to mention also the duplicated/chimeric
   pseudo-plasmids/contigs. They will clearly show up in dotplot. Actually with gepard I was doing all-against-all
@@ -20,13 +49,12 @@
 - [ ] DnaA centering
     - https://github.com/sanger-pathogens/circlator/wiki/Task:-fixstart
     - Dnaapler https://joss.theoj.org/papers/10.21105/joss.05968
-- [ ] Detect phages and plasmids
-  -Hatice: "I will send you some examples of dotplots that highlight the artefactual circularized contigs looking like
-  plasmids"
-- Interactive web server: more lightweight than Django?
+        - Way too slow! Can be automated for circular contigs. Should be part of the post-assembly process?
+- [x] Hatice: "I will send you some examples of dotplots that highlight the artefactual circularized contigs looking like plasmids"
+- [x] Interactive web server: more lightweight than Django?
     - https://www.pyweb.io/
     - https://bottlepy.org/docs/dev/
-- [ ] Dotplot: What I have is nice, but maybe overkill?
+- [x] Dotplot: What I have is nice, but maybe overkill?
     - Maybe I should create a more static multiplot per cluster
       like [trycycler](https://github.com/rrwick/Trycycler/blob/77d1be8cf786969a3821f3c04086df60b39ff781/trycycler/dotplot.py#L38)
     - Ignore for now?
@@ -36,12 +64,13 @@ also: [Snakemake workflows for long-read bacterial genome assembly and evaluatio
 
 # Workflow ideas
 
-Run the tool (assembler-tools load) once to create htmls for all assemblies.
+Run the tool (assembly-curator load) once to create htmls for all assemblies.
 
-Then, run the tool (assembler-tools serve) to start a web server:
- - Interactive webserver
- - User selects contigs
- - Click on export creates curated assemblies
+Then, run the tool (assembly-curator serve) to start a web server:
+
+- Interactive webserver
+- User selects contigs
+- Click on export creates curated assemblies
 
 # Assembler Tools
 

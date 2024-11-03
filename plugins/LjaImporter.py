@@ -1,10 +1,10 @@
 import os
 import logging
 import pandas as pd
-from assembler_tools.utils import AssemblyFailedException
-from assembler_tools.AssemblyImporter import AssemblyImporter
-from assembler_tools.Assembly import Assembly
-from assembler_tools.Contig import Contig
+from assembly_curator.utils import AssemblyFailedException
+from assembly_curator.AssemblyImporter import AssemblyImporter
+from assembly_curator.Assembly import Assembly
+from assembly_curator.Contig import Contig
 
 
 class LjaImporter(AssemblyImporter):

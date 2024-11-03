@@ -26,7 +26,7 @@
         }
     </style>
 </head>
-<body class="container">
+<body class="container-lg">
 
 
 {% if title != 'Overview' %}
@@ -47,29 +47,71 @@
 
 {% if samples %}
     <h2 class="mt-4">Samples</h2>
-    <div class="list-group">
-        {% for sample in samples %}
-            <div class="list-group-item d-flex align-items-center justify-content-between">
-                <div class="d-flex align-items-center">
-                    <a href="{{ relpath }}/{{ sample.name }}" class="d-flex align-items-center">
-                        <i class="bi bi-folder"></i>
-                    </a>
-                    <a href="{{ relpath }}/{{ sample.name }}/assemblies.html" class="d-flex align-items-center">
-                        <button class="ms-2 btn btn-{{ sample.btn_cls }} btn-sm"
-                                data-bs-toggle="tooltip" title="{{ sample.status }}">
-                            <i class="bi {{ sample.icon }}"></i>
-                        </button>
-                        <span class="ms-2 d-flex align-items-center">
-                            {{ sample.name }}
-                        </span>
-                    </a>
+
+    <style>
+#samples-div {
+    overflow-x: scroll;
+  display: flex;               /* Enables Flexbox layout */
+}
+
+#tree-container {
+  flex: 0 0 250px;             /* Fixed width of 250px */
+}
+
+#samples-list {
+  flex: 1;                     /* Takes up the remaining space */
+}
+.list-group-item{
+    min-width: max-content;
+}
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // Your code here
+            console.log("Document is ready!");
+            try {
+                const treeImage = document.getElementById('tree-img');
+                const samplesList = document.getElementById('samples-list');
+                treeImage.height = samplesList.getBoundingClientRect()['height']
+            } catch (error) {
+                console.error(error);
+                treeImage.width = 286
+            }
+        })
+    </script>
+
+    <div id="samples-div">
+        <!-- Left Div with the same height -->
+        <div class="" id="tree-container">
+            <img src="similarity_matrix.svg" id="tree-img">
+        </div>
+
+        <!-- List group -->
+        <div class="list-group" id="samples-list">
+            {% for sample in samples %}
+                <div class="list-group-item d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center">
+                        <a href="{{ relpath }}/{{ sample.name }}" class="d-flex align-items-center">
+                            <i class="bi bi-folder"></i>
+                        </a>
+                        <a href="{{ relpath }}/{{ sample.name }}/assemblies.html" class="d-flex align-items-center">
+                            <button class="ms-2 btn btn-{{ sample.btn_cls }} btn-sm"
+                                    data-bs-toggle="tooltip" title="{{ sample.status }}">
+                                <i class="bi {{ sample.icon }}"></i>
+                            </button>
+                            <span class="ms-2">
+                                {{ sample.name }}
+                            </span>
+                        </a>
+                        {{ sample.custom_html }}
+                    </div>
+                    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Reset"
+                            onclick="resetSample('{{ sample.name }}')">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </button>
                 </div>
-                <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Reset"
-                        onclick="resetSample('{{ sample.name }}')">
-                    <i class="bi bi-arrow-counterclockwise"></i>
-                </button>
-            </div>
-        {% endfor %}
+            {% endfor %}
+        </div>
     </div>
 {% endif %}
 
@@ -142,7 +184,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     alert('All not started samples dispatched successfully');
-                    location.reload();
+                    {#location.reload();#}
                 } else {
                     alert('Failed to dispatch samples');
                 }
@@ -161,7 +203,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     alert('All not finished samples reset successfully');
-                    location.reload();
+                    {#location.reload();#}
                 } else {
                     alert('Failed to reset samples');
                 }
@@ -181,7 +223,7 @@
             .then(data => {
                 if (data.status === 'success') {
                     alert('Sample reset successfully');
-                    location.reload();
+                    {#location.reload();#}
                 } else {
                     alert('Failed to reset sample');
                 }

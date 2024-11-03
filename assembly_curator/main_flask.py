@@ -6,6 +6,8 @@ from typing import List, Type
 
 import socket
 
+from assembly_curator.phylogenetic_tree import calculate_phylogenetic_tree
+
 socket.setdefaulttimeout(1000)  # seconds
 from werkzeug.serving import WSGIRequestHandler
 
@@ -18,22 +20,24 @@ from pywebio.session import eval_js
 
 from urllib.parse import urlparse, parse_qs
 
-from assembler_tools.ContigGroup import ContigGroup
-from assembler_tools.main_base import process_sample
-from assembler_tools.utils import load_importers, get_relative_path, AssemblyFailedException, detach_process
-from assembler_tools.Assembly import Assembly
-from assembler_tools.AssemblyImporter import AssemblyImporter
-from assembler_tools.contig_curator import *
+from assembly_curator.ContigGroup import ContigGroup
+from assembly_curator.main_base import process_sample, prepare_website
+from assembly_curator.utils import load_importers, load_get_custom_html, get_relative_path, detach_process
+from assembly_curator.Assembly import Assembly
+from assembly_curator.AssemblyImporter import AssemblyImporter
+from assembly_curator.contig_curator import *
 
 samples_directory: str = None
 importers: List[Type[AssemblyImporter]] = None
+get_custom_html = None
+
 process_assembly_huey = None
 assemblies: [Assembly] = None
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 env = Environment(
-    loader=PackageLoader('assembler_tools', 'templates'),
+    loader=PackageLoader('assembly_curator', 'templates'),
     autoescape=select_autoescape(['html'])
 )
 
@@ -52,18 +56,22 @@ pywebio_html = """
 
 
 def get_status(path):
+    res = {
+        'name': path,
+        'custom_html': get_custom_html(path)
+    }
     try:
-        files = os.listdir(os.path.join(samples_directory, path, 'assembler-tools'))
+        files = os.listdir(os.path.join(samples_directory, path, 'assembly-curator'))
     except FileNotFoundError:
-        return {'name': path, 'status': 'not started', 'btn_cls': 'secondary', 'icon': 'bi-pause-circle'}
+        return res | {'status': 'not started', 'btn_cls': 'secondary', 'icon': 'bi-pause-circle'}
     if 'hybrid.fasta' in files:
-        return {'name': path, 'status': 'finished', 'btn_cls': 'success', 'icon': 'bi-check-circle'}
+        return res | {'status': 'finished', 'btn_cls': 'success', 'icon': 'bi-check-circle'}
     elif 'assemblies.pkl' in files:
-        return {'name': path, 'status': 'preprocessed', 'btn_cls': 'primary', 'icon': 'bi-play-circle'}
+        return res | {'status': 'preprocessed', 'btn_cls': 'primary', 'icon': 'bi-play-circle'}
     elif 'failed' in files:
-        return {'name': path, 'status': 'failed', 'btn_cls': 'danger', 'icon': 'bi-x-circle'}
+        return res | {'status': 'failed', 'btn_cls': 'danger', 'icon': 'bi-x-circle'}
     else:
-        return {'name': path, 'status': 'processing', 'btn_cls': 'warning', 'icon': 'bi-hourglass-split'}
+        return res | {'status': 'processing', 'btn_cls': 'warning', 'icon': 'bi-hourglass-split'}
 
 
 def list_directory(samples_directory, rel_path, is_root=False):
@@ -96,20 +104,28 @@ def list_directory(samples_directory, rel_path, is_root=False):
     return template_index.render(context)
 
 
-
 @app.route('/')
 def serve_root():
     print('>>>>>>>>>>>>>>> serving overview')
 
-    samples, files, links = list_directory(samples_directory, '.', is_root=True)
+    folders, files, links = list_directory(samples_directory, '.', is_root=True)
+
+    calculate_tree = True
+    if calculate_tree:
+        samples = calculate_phylogenetic_tree(importers, samples_directory, force_rerun=False)
+        folders = [f for f in folders if f not in samples]
+    else:
+        samples, folders = folders, []
+
     samples = [get_status(path) for path in samples]
 
     template_index = env.get_template('index.html.jinja2')
     return template_index.render(
         title='Overview',
         samples=samples,
-        files=files,
-        links=links,
+        folders=sorted(folders),
+        files=sorted(files),
+        links=sorted(links),
         relpath=get_relative_path(f'{samples_directory}/index.html.jinja2', samples_directory)
     )
 
@@ -119,18 +135,18 @@ def process_assembly(sample, sample_dir):
     assemblies = process_sample(sample, sample_dir, importers)
 
     if not assemblies:
-        # touch /assembler-tools/fail
-        with open(f"{sample_dir}/assembler-tools/failed", 'w') as f:
+        # touch /assembly-curator/fail
+        with open(f"{sample_dir}/assembly-curator/failed", 'w') as f:
             f.write('Assembly failed.')
         return
 
-    dill.dump(assemblies, open(f"{sample_dir}/assembler-tools/assemblies.pkl", 'wb'))
+    dill.dump(assemblies, open(f"{sample_dir}/assembly-curator/assemblies.pkl", 'wb'))
 
 
 def serve_assembly(samples_directory, sample):
     sample_dir = os.path.join(samples_directory, sample)
 
-    if not os.path.isfile(f"{sample_dir}/assembler-tools/assemblies.pkl"):
+    if not os.path.isfile(f"{sample_dir}/assembly-curator/assemblies.pkl"):
         process_assembly(sample, sample_dir)
     else:
         print(f'>>>>>>>>>>>>>>> serving assembly {sample}')
@@ -144,7 +160,7 @@ def serve_assembly(samples_directory, sample):
 @app.route('/reset_sample', methods=['GET', 'POST'])
 def reset_sample():
     sample_name = request.json.get('sample_name')
-    path = os.path.join(samples_directory, sample_name, 'assembler-tools')
+    path = os.path.join(samples_directory, sample_name, 'assembly-curator')
     print(f'>>>>>>>>>>>>>>> Resetting {sample_name} ({path})')
 
     if os.path.isdir(path):
@@ -161,7 +177,7 @@ def reset_all_samples():
 
     for sample in samples:
         if sample['status'] != 'finished':
-            path = os.path.join(samples_directory, sample['name'], 'assembler-tools')
+            path = os.path.join(samples_directory, sample['name'], 'assembly-curator')
             if os.path.isdir(path):
                 shutil.rmtree(path)
 
@@ -206,10 +222,12 @@ def serve_path(filepath):
         elif action == 'download':
             as_attachment = True
 
+        print(full_path, as_attachment, mimetype)
+
         # Special case for favicon
         if filepath == 'favicon.ico':
-            # return assembler_tools/templates/assembler-tools.webp
-            return send_from_directory('templates', 'assembler-tools.webp')
+            # return assembly_curator/templates/assembly-curator.webp
+            return send_from_directory('templates', 'assembly-curator.webp')
 
         return send_from_directory(dirname, basename, as_attachment=as_attachment, mimetype=mimetype)
 
@@ -244,8 +262,8 @@ def pywebio_export():
     put_text(f">>>>>>>>>>>>>>> Curating {sample} with {len(contig_groups)} contig groups")
 
     sample_dir = os.path.join(samples_directory, sample)
-    assert os.path.isfile(f"{sample_dir}/assembler-tools/assemblies.pkl")
-    assemblies = dill.load(open(f"{sample_dir}/assembler-tools/assemblies.pkl", 'rb'))
+    assert os.path.isfile(f"{sample_dir}/assembly-curator/assemblies.pkl")
+    assemblies = dill.load(open(f"{sample_dir}/assembly-curator/assemblies.pkl", 'rb'))
     put_text(f"Loaded {len(assemblies)} assemblies for {sample}")
     cgs = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
 
@@ -259,7 +277,7 @@ def pywebio_export():
     # sort by length
     contig_groups.sort(key=lambda cg: len(cg), reverse=True)
     headers = create_headers(sample, contig_groups)
-    export(f"{sample_dir}/assembler-tools/hybrid.fasta", headers)
+    export(f"{sample_dir}/assembly-curator/hybrid.fasta", headers)
 
 
 # Add the PyWebIO endpoint
@@ -267,22 +285,25 @@ app.add_url_rule('/export', 'webio_view', webio_view(pywebio_export), methods=['
 
 
 def run_server(
-        samples_dir: str = './data-pb',
-        plugin_dir: str = './plugins-pb',
+        samples_dir: str = '/data',
+        plugin_dir: str = '/plugins',
         port=8080,
         address='localhost',
         debug: bool = False,
-        run_huey: bool = False
+        n_workers: int = 0
 ):
+    assert os.path.isdir(samples_dir), f"Samples directory {samples_dir} does not exist"
+    assert os.path.isdir(plugin_dir), f"Plugin directory {plugin_dir} does not exist"
+
     global samples_directory, process_assembly_huey, huey
     samples_directory = samples_dir
 
     os.environ['HUEY_DB_PATH'] = os.path.join(samples_dir, 'huey.db')
-    from assembler_tools.huey_tasks import process_assembly as process_assembly_huey, huey
+    from assembly_curator.huey_tasks import process_assembly as process_assembly_huey, huey
 
-    if run_huey:
-        from assembler_tools.huey_main import run_huey
-        detach_process(run_huey)
+    if n_workers > 0:
+        from assembly_curator.huey_main import run_huey
+        detach_process(run_huey, samples_dir=samples_dir, plugin_dir=plugin_dir, n_workers=n_workers)
 
     os.environ['MULTIPROCESSING_DOTPLOTS'] = 'TRUE'
 
@@ -291,14 +312,18 @@ def run_server(
 
     assert os.path.isdir(plugin_dir), f"Plugin directory {plugin_dir} does not exist"
 
-    global importers
+    global importers, get_custom_html
     importers = load_importers(plugin_dir)
+    get_custom_html = load_get_custom_html(plugin_dir)
+
+    prepare_website(samples_dir, link=False)
 
     app.run(host=address, port=port, debug=debug)
 
 
 def main():
     from fire import Fire
+
     Fire(run_server)
 
 

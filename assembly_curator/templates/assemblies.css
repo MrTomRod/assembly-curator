@@ -1,7 +1,27 @@
 #ani-clustermap-container {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
+    text-align: center;
+    position: relative;
+    margin: 10px 0;
+}
+
+#ani-clustermap-container svg {
+    width: 100%; /* Set initial width to fill the container */
+    height: auto;
+    display: inline-block;
+}
+
+.zoom-controls {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.zoom-button {
+    padding: 5px 10px;
+    font-size: 16px;
+    cursor: pointer;
 }
 
 #ani-clustermap-container .contig-group.selected {
@@ -18,6 +38,26 @@ table img, table svg {
     height: 100%;
 }
 
+
+table .contig-group {
+    width: 100%;
+}
+
+table .cluster-indicator {
+    background: var(--cluster-color);
+    width: 3rem;
+}
+
+table .atgc-indicator {
+    width: 5rem;
+}
+
+table .contig-indicator {
+    width: inherit;
+    font-weight: inherit;
+}
+
+/*
 table .contig-group {
     margin: 4px;
     background: var(--cluster-color);
@@ -28,18 +68,34 @@ table .contig-group {
     margin-bottom: 1rem;
 }
 
-.list-group-item > .btn {
-	display: block;
-}
-
-/*hover: darken*/
+// hover: darken
 table .contig-group:hover {
     background: var(--cluster-color);
     filter: brightness(85%);
 }
+*/
 
-table div.contig-group.selected {
-    border-color: green;
+table div.contig-group {
+    border: 2px solid grey;
+}
+
+.selected .btn-secondary {
+    /* custom */
+    border: 2px solid green;
+    font-weight: bold;
+    /* overwrite bootstrap's btn-secondary */
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #495057; /* Darker background to indicate activation */
+    --bs-btn-border-color: #495057;
+    --bs-btn-hover-bg: #3d454b; /* Slightly darker hover state */
+    --bs-btn-hover-border-color: #3d454b;
+    --bs-btn-active-bg: #3d454b; /* Darker active state */
+    --bs-btn-active-border-color: #3d454b;
+    --bs-btn-focus-shadow-rgb: 108, 117, 125; /* Lighter shadow to make it stand out */
+    --bs-btn-active-shadow: inset 0 3px 8px rgba(0, 0, 0, 0.15); /* Stronger inset shadow */
+    outline: none; /* Remove outline to enhance the activated look */
+    box-shadow: 0 0 0 0.25rem rgba(108, 117, 125, 0.5); /* Add an outer glow to stand out */
+    transition: background-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out; /* Smooth transition */
 }
 
 table th:not(:first-child), table td:not(:first-child) {
@@ -142,9 +198,8 @@ table th:not(:first-child), table td:not(:first-child) {
     cursor: pointer;
 }
 
-.contig-atgc {
-    position: relative;
-    margin-bottom: 1rem;
+.atgc-indicator {
+    background-image: var(--line-gradient);
 }
 
 /* Thin line below the div */
@@ -157,4 +212,6 @@ table th:not(:first-child), table td:not(:first-child) {
     position: absolute;
     bottom: -1px; /* Adjusts the position of the line below the div */
     left: 0;
+}
+
 }

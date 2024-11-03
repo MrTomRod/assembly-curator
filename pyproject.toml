@@ -1,30 +1,31 @@
-[tool.poetry]
-name = "assembler-tools"
+[project]
+name = "assembly-curator"
 version = "0.0.0"
-description = "Assembler Tools is a Python automation tool for genome assembly comparison and curation. It can be configured easily to work with different assemblers and features a web-based UI for easy comparison of assembly graphs and allows users to select the best assembly or create a hybrid one. The final output is a hybrid assembly compatible with NCBI PGAP standards."
-authors = ["MrTomRod <roder.thomas@gmail.com>"]
+description = "Automated tool for comparing and selecting the best bacterial genome assemblies from multiple assemblers."
+authors = [
+    { author = "MrTomRod", email = "roder.thomas@gmail.com" }
+]
 license = "MIT"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.12"
-fire = "^0.6.0"
-pandas = "^2.2.2"
-scipy = "^1.13.1"
-plotly = "^5.22.0"
-jinja2 = "^3.1.4"
-pyskani = "^0.1.2"
-seaborn = "^0.13.2"
-tornado = "^6.4.1"
-pywebio = "^1.8.3"
-flask = "^3.0.3"
-dill = "^0.3.8"
-huey = "^2.5.1"
-
+requires-python = ">=3.12"
+dependencies = [
+    "fire>=0.6.0",
+    "pandas>=2.2.2",
+    "scipy>=1.13.1",
+    "plotly>=5.22.0",
+    "jinja2>=3.1.4",
+    "pyskani>=0.1.2",
+    "seaborn>=0.13.2",
+    "tornado>=6.4.1",
+    "pywebio>=1.8.3",
+    "flask>=3.0.3",
+    "dill>=0.3.8",
+    "huey>=2.5.1",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.scripts]
-assembler-tools = "assembler_tools.main:main"
+[tool.hatch.build.targets.wheel]
+packages = ["assembly_curator"]

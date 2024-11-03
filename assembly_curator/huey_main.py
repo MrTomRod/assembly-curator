@@ -22,7 +22,7 @@ def run_huey(
     print(f"Starting Huey with {n_workers=} for {samples_dir=}")
     print('****************************************************')
 
-    from assembler_tools.huey_tasks import huey
+    from assembly_curator.huey_tasks import huey
     n_workers = max(os.cpu_count() - 1, 1)
     huey_consumer = huey.create_consumer(
         workers=n_workers,

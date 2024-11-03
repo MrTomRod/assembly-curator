@@ -1,6 +1,6 @@
 import {dotplot, assembliesToPafMinimap, loadPaf} from './dotplot.js';
 
-const metadata = fetch('assembler-tools/assemblies.json').then(response => response.json()).then(assemblies => {
+const metadata = fetch('assembly-curator/assemblies.json').then(response => response.json()).then(assemblies => {
     const contigs = {}
     const contigGroups = {}
     // assemblies is a dictionary of assemblies {'flye': ..., 'canu': ...}
@@ -587,29 +587,70 @@ function calculateATGCgradient(div) {
     return [gradient, tooltipText];
 }
 
-function applyATGCgradientAssembly(div) {
+function addATGCgradient(div, tooltip = true) {
     const [gradient, tooltipText] = calculateATGCgradient(div);
     // Apply the gradient as the background of the div
     div.style.setProperty('--line-gradient', gradient);
 
-    // Set up the tooltip using Bootstrap's data-bs-toggle attribute
-    div.setAttribute('data-bs-toggle', 'tooltip');
-    div.setAttribute('data-bs-html', 'true');
-    div.setAttribute('title', tooltipText);
+    if (tooltip) {
+        // Set up the tooltip using Bootstrap's data-bs-toggle attribute
+        div.setAttribute('data-bs-toggle', 'tooltip');
+        div.setAttribute('data-bs-html', 'true');
+        div.setAttribute('title', tooltipText);
 
-    // Initialize the tooltip
-    new bootstrap.Tooltip(div);
+        // Initialize the tooltip
+        new bootstrap.Tooltip(div);
+    }
 }
 
-function applyATGCgradientContig(div) {
-    // Assuming calculateATGCgradient is a function that returns the gradient string
-    const [gradient, _] = calculateATGCgradient(div);
+function activateAniZoom() {
+    const container = document.getElementById('ani-clustermap-container');
+    const zoomInButton = document.getElementById('ani-zoom-in');
+    const zoomOutButton = document.getElementById('ani-zoom-out');
+    let scale = 1; // Scale factor for zooming
 
-    // Apply the gradient to the thin line
-    div.style.setProperty('--line-gradient', gradient);
+    // Function to adjust the SVG width based on scale
+    function adjustSVGWidth() {
+        const svg = container.querySelector('svg') || container.querySelector('img')
+        console.log(svg)
+        svg.style.width = `${scale * 100}%`;
+    }
+
+    // Zoom In Function
+    zoomInButton.addEventListener('click', () => {
+        scale += 0.1;
+        adjustSVGWidth();
+    });
+
+    // Zoom Out Function
+    zoomOutButton.addEventListener('click', () => {
+        if (scale > 0.1) { // Prevent zooming out too much
+            scale -= 0.1;
+            adjustSVGWidth();
+        }
+    });
+
+    // Keyboard event listener for '+' and '-' keys
+    document.addEventListener('keydown', (event) => {
+        if (event.key === '+' || event.key === '=') { // '+' key
+            scale += 0.1;
+            adjustSVGWidth();
+        } else if (event.key === '-') { // '-' key
+            if (scale > 0.1) {
+                scale -= 0.1;
+                adjustSVGWidth();
+            }
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    try {
+        activateAniZoom();
+    } catch (error) {
+        // Handle the error (optional)
+        console.error('activateAniZoom failed, but continuing execution:', error);
+    }
     toggleContigGroupTable()
     toggleDotPlotTabs()
 
@@ -629,6 +670,6 @@ document.addEventListener('DOMContentLoaded', function () {
         })
     });
 
-    document.querySelectorAll('.assembly-atgc').forEach(applyATGCgradientAssembly);
-    document.querySelectorAll('.contig-atgc').forEach(applyATGCgradientContig);
+    document.querySelectorAll('.assembly-atgc').forEach(addATGCgradient);
+    document.querySelectorAll('.atgc-indicator').forEach(addATGCgradient);
 });

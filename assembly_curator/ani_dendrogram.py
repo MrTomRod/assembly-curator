@@ -11,11 +11,11 @@ import plotly.graph_objects as go
 import plotly.figure_factory as ff
 import pyskani
 
-from assembler_tools import ContigGroup
-from assembler_tools.utils import AssemblyFailedException, MinorAssemblyException
-from assembler_tools.Assembly import Assembly
+from assembly_curator import ContigGroup
+from assembly_curator.utils import AssemblyFailedException, MinorAssemblyException
+from assembly_curator.Assembly import Assembly
 
-matplotlib.use('agg')  # non-interactive backend that can only write to files
+matplotlib.use('SVG')
 
 
 def ani_clustermap(assemblies: [Assembly], fname: str, cutoff: float = .9) -> (pd.DataFrame, str):
@@ -105,7 +105,7 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, fname: str, **kwargs) -> (s
     # Generate the clustermap
     clustermap_fig = sns.clustermap(
         similarity_matrix,
-        figsize=(10, 10),
+        figsize=(max(10, len(similarity_matrix) / 2), max(10, len(similarity_matrix) / 2)),
         cmap='mako_r',
         linewidths=5,
         row_cluster=True,
@@ -138,7 +138,7 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, fname: str, **kwargs) -> (s
 def group_by_linkage(similarity_matrix, linkage_matrix: np.ndarray, threshold: float = .95) -> {int: [str]}:
     """Form flat clusters based on threshold"""
     cluster_group = sch.fcluster(linkage_matrix, t=threshold, criterion='distance')
-    cluster_colors = sns.color_palette('tab20', n_colors=len(set(cluster_group)))
+    cluster_colors = sns.color_palette('Set2', n_colors=len(set(cluster_group)))
 
     return {
         i: {'cluster': int(g), 'color': cluster_colors[int(g) - 1]}

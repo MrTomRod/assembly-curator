@@ -1,5 +1,5 @@
-from assembler_tools.AssemblyImporter import AssemblyImporter
-from assembler_tools.Assembly import Assembly
+from assembly_curator.AssemblyImporter import AssemblyImporter
+from assembly_curator.Assembly import Assembly
 
 
 class HifiasmImporter(AssemblyImporter):

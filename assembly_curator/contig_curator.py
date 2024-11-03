@@ -2,7 +2,7 @@ import os.path
 
 from pywebio.output import put_text, put_markdown
 
-from assembler_tools.ContigGroup import ContigGroup, Contig
+from assembly_curator.ContigGroup import ContigGroup, Contig
 from pywebio.input import input, FLOAT, SELECT, TEXT, select, input_group
 
 

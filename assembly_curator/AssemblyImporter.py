@@ -40,10 +40,9 @@ class AssemblyImporter(ABC):
         if not data:
             raise AssemblyFailedException(f'{self.name}: FASTA file {fasta} is empty')
 
-        data = [e.strip() for e in data.split('>')]
-
         contigs = {}
-        for entry in data:
+        for entry in data.split('>'):
+            entry = entry.strip()
             if entry == '': continue  # start or end of FASTA file
             contig_header, sequence = entry.split('\n', 1)
             sequence = sequence.replace('\n', '')
@@ -150,32 +149,28 @@ class AssemblyImporter(ABC):
 
         return gfa, connections, circular
 
-    def gfa_to_svg(self, gfa: str, overwrite: bool = True, params: str = '--labels'):
+    def gfa_to_svg(self, gfa: str, overwrite: bool = True, params: [str] = ['--labels']):
         gfa_dirname = os.path.dirname(gfa)
         gfa_basename = os.path.basename(gfa)
         svg_basename = f'{gfa_basename}.svg'
+        svg_path = os.path.join(gfa_dirname, svg_basename)
 
-        if os.path.isfile(os.path.join(gfa_dirname, svg_basename)):
+        if os.path.isfile(svg_path):
             if overwrite:
                 logging.info(f'Overwriting {svg_basename}')
-                os.remove(os.path.join(gfa_dirname, svg_basename))
+                os.remove(svg_path)
             else:
                 logging.info(f'Skipping {svg_basename} as it already exists')
                 return
 
         cmd = self._gfa_to_svg_cmd(gfa_basename, svg_basename, params)
-        wrap = self._gfa_to_svg_wrap(cmd)
-        logging.info(f'Running: {wrap}')
-        return_code = run_command(wrap, cwd=gfa_dirname, shell=True)
-        assert return_code == 0 and os.path.isfile(os.path.join(gfa_dirname, svg_basename)), \
-            f'Failed to create {svg_basename}'
+        logging.info(f'Running: {cmd}')
+        return_code = run_command(cmd, cwd=gfa_dirname)
+        assert return_code == 0 and os.path.isfile(svg_path), f'Failed to create {svg_basename}'
 
-    def _gfa_to_svg_cmd(self, gfa_basename: str, svg_basename: str, params: str = '--labels'):
-        return (f'/home/thomas/PycharmProjects/assembler-tools/bin/gfaviz-mrtomrod '
-                f'--no-gui --render {params} --output "{svg_basename}" "{gfa_basename}"')
+    def _gfa_to_svg_cmd(self, gfa_basename: str, svg_basename: str, params: str = ['--labels']):
+        return (['gfaviz-mrtomrod', '--no-gui', '--render'] + params + ['--output', svg_basename, gfa_basename])
 
-    def _gfa_to_svg_wrap(self, cmd: str):
-        return cmd
     # def _gfa_to_svg_cmd(self, gfa_basename: str, svg_basename: str, params: str = '--labels'):
     #     return f'gfaviz-mrtomrod --no-gui --render {params} --output "{svg_basename}" "{gfa_basename}"'
     #
