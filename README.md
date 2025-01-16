@@ -65,7 +65,7 @@ class FlyeImporter1(AssemblyImporter):
 - Interactive ANI matrix and dotplots for visual curation.
 - Exported hybrid assemblies (`hybrid.fasta`) ready for annotation.
 
-## 📚 Documentation
+## 📚 Inspiration and Dependencies
 
 - [Trycycler Inspiration](https://github.com/rrwick/Trycycler)
 - [gfaviz](https://github.com/ggonnella/gfaviz)
