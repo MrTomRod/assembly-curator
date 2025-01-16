@@ -4,17 +4,23 @@
     <meta charset="UTF-8">
     <title>Assembler Tools - {{ title }}</title>
 
+    <!-- Set dark theme -->
     <script>
         document.documentElement.setAttribute('data-bs-theme', (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'))
     </script>
 
+    <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
           integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
             integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
             crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <!-- Existing head content -->
+
+    <!-- Snarkdown (Markdown to HTML) -->
+    <script src="https://unpkg.com/snarkdown@2.0.0/dist/snarkdown.umd.js"></script>
+
+    <!-- Custom CSS -->
     <style>
         .list-group-item a {
             color: inherit;
@@ -49,26 +55,25 @@
     <h2 class="mt-4">Samples</h2>
 
     <style>
-#samples-div {
-    overflow-x: scroll;
-  display: flex;               /* Enables Flexbox layout */
-}
+        #samples-div {
+            overflow-x: scroll;
+            display: flex; /* Enables Flexbox layout */
+        }
 
-#tree-container {
-  flex: 0 0 250px;             /* Fixed width of 250px */
-}
+        #tree-container {
+            flex: 0 0 250px; /* Fixed width of 250px */
+        }
 
-#samples-list {
-  flex: 1;                     /* Takes up the remaining space */
-}
-.list-group-item{
-    min-width: max-content;
-}
+        #samples-list {
+            flex: 1; /* Takes up the remaining space */
+        }
+
+        .list-group-item {
+            min-width: max-content;
+        }
     </style>
     <script>
         document.addEventListener("DOMContentLoaded", function () {
-            // Your code here
-            console.log("Document is ready!");
             try {
                 const treeImage = document.getElementById('tree-img');
                 const samplesList = document.getElementById('samples-list');
@@ -95,8 +100,7 @@
                             <i class="bi bi-folder"></i>
                         </a>
                         <a href="{{ relpath }}/{{ sample.name }}/assemblies.html" class="d-flex align-items-center">
-                            <button class="ms-2 btn btn-{{ sample.btn_cls }} btn-sm"
-                                    data-bs-toggle="tooltip" title="{{ sample.status }}">
+                            <button class="ms-2 btn btn-{{ sample.btn_cls }} btn-sm" title="{{ sample.status }}">
                                 <i class="bi {{ sample.icon }}"></i>
                             </button>
                             <span class="ms-2">
@@ -105,10 +109,17 @@
                         </a>
                         {{ sample.custom_html }}
                     </div>
-                    <button class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip" title="Reset"
-                            onclick="resetSample('{{ sample.name }}')">
-                        <i class="bi bi-arrow-counterclockwise"></i>
-                    </button>
+
+                    <div>
+                        <div class="sample-note-indicator btn btn-{% if sample.note %}warning{% else %}outline-secondary{% endif %} btn-sm"
+                             data-note="{{ sample.note }}" title="note.md">
+                            <i class="bi bi-pencil-square"></i>
+                        </div>
+                        <button class="sample-reset-button btn btn-outline-secondary btn-sm" title="Reset"
+                                data-sample="{{ sample.name }}">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                    </div>
                 </div>
             {% endfor %}
         </div>
@@ -141,12 +152,10 @@
                     <a href="{{ file }}" class="ms-2">{{ file }}</a>
                 </div>
                 <div>
-                    <a href="{{ file }}?action=view" class="btn btn-outline-secondary btn-sm" data-bs-toggle="tooltip"
-                       title="View">
+                    <a href="{{ file }}?action=view" class="btn btn-outline-secondary btn-sm" title="View">
                         <i class="bi bi-eye"></i>
                     </a>
-                    <a href="{{ file }}?action=download" class="btn btn-outline-secondary btn-sm ms-2"
-                       data-bs-toggle="tooltip" title="Download">
+                    <a href="{{ file }}?action=download" class="btn btn-outline-secondary btn-sm ms-2" title="Download">
                         <i class="bi bi-download"></i>
                     </a>
                 </div>
@@ -195,15 +204,13 @@
     function resetAllSamples() {
         fetch('/reset_all_samples', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            }
+            headers: {'Content-Type': 'application/json'}
         })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
                     alert('All not finished samples reset successfully');
-                    {#location.reload();#}
+                    location.reload()
                 } else {
                     alert('Failed to reset samples');
                 }
@@ -211,25 +218,82 @@
             .catch(error => console.error('Error:', error));
     }
 
-    function resetSample(sampleName) {
+    function resetSample(sampleResetButton) {
+        const sampleName = sampleResetButton.getAttribute('data-sample');
         fetch('/reset_sample', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({sample_name: sampleName})
         })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
+                    // update the status icon
+                    toReplace = sampleResetButton.parentElement.parentElement.querySelector('.ms-2').outerHTML =
+                        '<button class="ms-2 btn btn-secondary btn-sm" title="not started">' +
+                        '<i class="bi bi-pause-circle"></i></button>'
                     alert('Sample reset successfully');
-                    {#location.reload();#}
                 } else {
                     alert('Failed to reset sample');
                 }
             })
             .catch(error => console.error('Error:', error));
     }
-</script>
 
+
+    document.addEventListener("DOMContentLoaded", function () {
+        document.querySelectorAll('.sample-reset-button').forEach(button => {
+            button.addEventListener('click', (event) => resetSample(event.currentTarget))
+        })
+
+        document.querySelectorAll('.sample-note-indicator').forEach(div => {
+            const rowDiv = div.parentElement.parentElement;
+            const sampleName = rowDiv.querySelector('a').href.split('/').pop();
+
+            // Fetch note.md when hovering over the entire row
+            rowDiv.addEventListener('mouseenter', function () {
+                fetch('/get_status', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({sample_name: sampleName})
+                })
+                    .then(data => data.json())
+                    .then(data => {
+                        // update status icon
+                        rowDiv.querySelector('.btn').outerHTML = '<button class="ms-2 btn btn-' +
+                            data.btn_cls + ' btn-sm" title="' + data.status + '">' +
+                            '<i class="bi ' + data.icon + '"></i></button>'
+                        // update note
+                        div.dataset.note = data.note
+                        if (data.note == undefined) {
+                            div.classList.remove('btn-warning')
+                            div.classList.add('btn-outline-secondary')
+                        } else {
+                            div.classList.remove('btn-outline-secondary')
+                            div.classList.add('btn-warning')
+                        }
+                    })
+            });
+
+            // Show Bootstrap 5.3 popover when hovering over the indicator
+            function getContent() {
+                data = div.dataset.note
+                if (data == undefined) return 'No note.md'
+                try {
+                    data = snarkdown(data);
+                } catch (error) {
+                    console.error('Error converting markdown to html:', error);
+                }
+                return data
+            }
+
+            const popover = new bootstrap.Popover(div, {
+                trigger: 'hover',
+                html: true,
+                sanitize: false,
+                content: getContent
+            });
+        });
+    })
+</script>
 </html>

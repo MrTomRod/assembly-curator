@@ -13,17 +13,6 @@
     display: inline-block;
 }
 
-.zoom-controls {
-    text-align: center;
-    margin-bottom: 10px;
-}
-
-.zoom-button {
-    padding: 5px 10px;
-    font-size: 16px;
-    cursor: pointer;
-}
-
 #ani-clustermap-container .contig-group.selected {
     stroke: green !important;
 }

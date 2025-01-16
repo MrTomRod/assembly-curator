@@ -18,7 +18,6 @@ env = Environment(
     autoescape=select_autoescape(['html'])
 )
 template_index = env.get_template('index.html.jinja2')
-template_assemblies = env.get_template('assemblies.html.jinja2')
 
 s_to_n = lambda sample: {'name': sample, 'status': 'not started', 'btn_cls': 'secondary', 'icon': 'bi-pause-circle'}
 
@@ -44,15 +43,13 @@ def process_samples(
     template_index.stream(
         title=f'Index of: {samples_dir}',
         relpath=get_relative_path(overview_file, samples_dir),
-        samples =[s_to_n(s) for s in samples],
+        samples=[s_to_n(s) for s in samples],
         folders=sorted(folders),
         files=sorted([]),
         links=sorted([]),
     ).dump(overview_file)
 
     prepare_website(samples_dir)
-
-    exit(0)
 
     for sample in samples:
         sample_dir = os.path.join(samples_dir, sample)
@@ -64,7 +61,7 @@ def process_samples(
 
 
 # DATADIR = ''
-DATADIR = '-pb'
+DATADIR = '-nanopore'
 
 
 def cli(samples_dir: str = f'./data{DATADIR}', plugin_dir: str = f'./plugins{DATADIR}', force_rerun: bool = False):

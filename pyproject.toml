@@ -1,7 +1,7 @@
 [project]
 name = "assembly-curator"
-version = "0.0.0"
-description = "Automated tool for comparing and selecting the best bacterial genome assemblies from multiple assemblers."
+version = "0.0.1"
+description = "Quickly generate consensus assemblies for bacterial genomes"
 authors = [
     { author = "MrTomRod", email = "roder.thomas@gmail.com" }
 ]
@@ -11,7 +11,7 @@ requires-python = ">=3.12"
 dependencies = [
     "fire>=0.6.0",
     "pandas>=2.2.2",
-    "scipy>=1.13.1",
+    "scipy>=1.15",
     "plotly>=5.22.0",
     "jinja2>=3.1.4",
     "pyskani>=0.1.2",

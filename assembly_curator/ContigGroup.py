@@ -43,6 +43,14 @@ class ContigGroup:
     def assembler(self):
         return self.contigs[0].assembler
 
+    @property
+    def location(self):
+        return self.contigs[0].location
+
+    def set_location(self, location):
+        for contig in self.contigs:
+            contig.location = location
+
     def sort(self):
         self.contigs = sorted(self.contigs, key=lambda contig: len(contig), reverse=True)
 
@@ -65,6 +73,8 @@ class ContigGroup:
     def topology_or_n_contigs(self, short: bool = False) -> str:
         if len(self.contigs) == 1:
             topology = self.contigs[0].topology
+            if topology is None:
+                return '?'
             return topology[0] if short else topology
         return f'n={len(self.contigs)}' if short else f'{len(self.contigs)} contigs'
 

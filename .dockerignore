@@ -1,9 +1,9 @@
 .*
 bin
-.venv
-.idea
 data*
 plugins*
 comp
 huey.db
 **/__pycache__/
+media
+Dockerfile

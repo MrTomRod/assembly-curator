@@ -5,10 +5,16 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
 ENV QT_QPA_PLATFORM=offscreen
 ENV XDG_RUNTIME_DIR=/tmp/runtime-root
 
-# Install curl to download rustup and libqt5svg5 for gfaviz
-RUN apt-get update && \
+# Install libqt5svg5 for gfaviz
+RUN apt-get update  && \
     apt-get install --no-install-recommends -y libqt5svg5 && \
     apt-get clean
+
+# Copy gfaviz-mrtomrod from existing Docker image
+COPY --from=docker.io/troder/gfaviz:1.0.0-mrtomrod /opt/gfaviz/gfaviz-mrtomrod /usr/local/bin/
+
+# Copy minimap2 from existing Docker image
+COPY --from=docker.io/nanozoo/minimap2:2.28--9e3bd01 /opt/conda/bin/minimap2 /usr/local/bin/
 
 WORKDIR /app
 
@@ -28,16 +34,15 @@ COPY . /app
 RUN --mount=type=cache,target=/root/.cache/uv,Z \
     uv sync --frozen --no-dev
 
-# Place executables in the environment at the front of the path
-ENV PATH="/app/.venv/bin:/app/bin:$PATH"
-
-# Add /plugins to PYTHONPATH=/plugins
+# Set environment variables
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH="/plugins"
 
 # Reset the entrypoint, don't invoke `uv`
 ENTRYPOINT []
 
+# Run the application
 CMD ["python", "assembly_curator/main_flask.py", "--address=0.0.0.0", "--samples_dir=/data", "--plugin_dir=/plugins", "--n_workers=8"]
 
-# podman build . --tag docker.io/troder/assembly-curator:0.0.0-alpha
-# podman run -it --rm -v ./data-pb-all:/data:Z -v ./plugins-pb:/plugins:Z -p 8080:8080 --name assembly-curator assembly-curator
+# podman build . --tag docker.io/troder/assembly-curator:0.0.1-alpha
+# podman run -it --rm -v ./data-pb-share:/data:Z -v ./plugins-share:/plugins:Z -p 8080:8080 --name assembly-curator docker.io/troder/assembly-curator:0.0.1-alpha

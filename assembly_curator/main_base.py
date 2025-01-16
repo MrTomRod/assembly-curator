@@ -1,4 +1,5 @@
 import os
+import sys
 import shutil
 import json
 import logging
@@ -9,7 +10,6 @@ import importlib.resources as pkg_resources
 
 from assembly_curator.ContigGroup import ContigGroup
 from assembly_curator.dotplots_minimap2 import process_cluster
-# from assembly_curator.dotplots_rrwick import process_cluster
 from assembly_curator.utils import AssemblyFailedException, rgb_array_to_css, css_escape
 from assembly_curator.ani_dendrogram import ani_clustermap, add_cluster_info_to_assemblies
 from assembly_curator.Assembly import Assembly
@@ -19,7 +19,8 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 env = Environment(
     loader=PackageLoader('assembly_curator', 'templates'),
-    autoescape=select_autoescape(['html'])
+    autoescape=select_autoescape(['html']),
+    cache_size=0 if '--debug' in sys.argv else -1
 )
 env.filters['css_escape'] = css_escape
 template_overview = env.get_template('index.html.jinja2')
@@ -38,6 +39,8 @@ def process_sample(
         raise_error: bool = False,
         force_rerun: bool = False
 ) -> [Assembly]:
+    template_assemblies = env.get_template('assemblies.html.jinja2')
+
     if force_rerun:
         shutil.rmtree(f"{sample_dir}/assembly-curator")
     elif os.path.exists(f"{sample_dir}/assembly-curator"):
@@ -56,34 +59,32 @@ def process_sample(
         logging.warning(str(e))
         template_assemblies.stream(
             messages=[e], sample=sample,
-            assemblies=[], sample_to_cluster={}, cluster_to_color={},
+            assemblies=[], cluster_to_color={},
         ).dump(f"{sample_dir}/assemblies.html")
         return []
 
-    similarity_matrix, sample_to_cluster = ani_clustermap(
+    similarity_matrix, cluster_to_color, cg_to_cluster = ani_clustermap(
         assemblies=assemblies,
         fname=f"{sample_dir}/assembly-curator/ani_clustermap.svg"
     )
     similarity_matrix.to_csv(f'{sample_dir}/assembly-curator/assemblies_pyskani_similarity_matrix.tsv', sep='\t')
 
-    add_cluster_info_to_assemblies(assemblies, sample_to_cluster)
+    add_cluster_info_to_assemblies(assemblies, cluster_to_color, cg_to_cluster)
 
-    cluster_to_color = create_all_dotplots(assemblies, sample_dir)
+    # cluster_to_color =
+    create_all_dotplots(assemblies, sample_dir)
 
     json_data = {assembly.assembler: assembly.to_json() for assembly in assemblies}
 
     with open(f"{sample_dir}/assembly-curator/assemblies.json", 'w') as f:
         json.dump(json_data, f, indent=2)
 
-    for contig in sample_to_cluster:
-        sample_to_cluster[contig]['color'] = rgb_array_to_css(sample_to_cluster[contig]['color'])
-
     template_assemblies.stream(
         messages=messages,
         sample=sample,
         assemblies=assemblies,
-        sample_to_cluster=sample_to_cluster,
-        cluster_to_color={k: rgb_array_to_css(v) for k, v in cluster_to_color.items()},
+        cluster_to_color={cluster_id: rgb_array_to_css(color) for cluster_id, color in cluster_to_color.items()},
+        cg_to_cluster=cg_to_cluster,
     ).dump(f"{sample_dir}/assemblies.html")
 
     template_assemblies_css.stream(
@@ -144,9 +145,6 @@ def create_all_dotplots(assemblies, sample_dir: str):
     cgs = {cg.id: cg for assembly in assemblies for cg in assembly.contig_groups}
 
     cluster_to_color = {cg.cluster_id: cg.cluster_color for cg in cgs.values()}
-    cluster_to_color = dict(sorted(cluster_to_color.items(), key=lambda item: item[0]))
-
-    # return cluster_to_color
 
     tmpdirs = {}
     cluster_to_cgs = {}

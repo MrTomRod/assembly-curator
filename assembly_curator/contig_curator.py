@@ -1,9 +1,9 @@
 import os.path
 
-from pywebio.output import put_text, put_markdown
+from pywebio.output import put_markdown
 
 from assembly_curator.ContigGroup import ContigGroup, Contig
-from pywebio.input import input, FLOAT, SELECT, TEXT, select, input_group
+from pywebio.input import TEXT, SELECT, input, select, input_group
 
 
 def scf_names_dialact(sample_name, scf_id: int):
@@ -14,23 +14,23 @@ def plasmid_names_dialact(sample_name, plasmid_id: int):
     return f"p{sample_name.rsplit('-', 2)[0]}_{plasmid_id}"
 
 
-def determine_location(contig: Contig) -> None:
-    if contig.location:
-        return  # nothing to do
+def determine_location(cg: ContigGroup) -> None:
+    if cg.location:
+        return  # location already set
 
     # determine location based on length
-    if contig.topology == 'circular':
-        if 5_000 < len(contig) < 500_000:
-            contig.location = 'plasmid'
+    if len(cg.contigs) == 1 and cg.contigs[0].topology == 'circular':
+        if 5_000 < len(cg) < 500_000:
+            cg.set_location('plasmid')
             return
-        elif len(contig) > 1_700_000:
-            contig.location = 'chromosome'
+        elif len(cg) > 1_500_000:
+            cg.set_location('chromosome')
             return
 
-    contig.location = select(
-        f'Please provide a location for {contig.id}',
+    cg.set_location(select(
+        f'Please provide a location for {cg.id}',
         options=['chromosome', 'plasmid', 'unknown'], value='unknown'
-    )
+    ))
 
 
 def determine_topology(contig: Contig) -> None:
@@ -48,12 +48,12 @@ def create_headers(sample, contig_groups: [ContigGroup]) -> [str]:
     headers = {}
     contig_count, plasmid_count = 0, 0
     for cg_id, cg in enumerate(contig_groups):
+        determine_location(cg)
+        if cg.location == 'plasmid':
+            plasmid_count += 1
         for contig in cg.contigs:
             contig_count += 1
-            determine_location(contig)
             determine_topology(contig)
-            if contig.location == 'plasmid':
-                plasmid_count += 1
             headers[contig.id] = dict(
                 header=create_header(
                     contig,

@@ -1,5 +1,6 @@
 import {dotplot, assembliesToPafMinimap, loadPaf} from './dotplot.js';
 
+const sample = document.getElementById('sample').textContent
 const metadata = fetch('assembly-curator/assemblies.json').then(response => response.json()).then(assemblies => {
     const contigs = {}
     const contigGroups = {}
@@ -16,19 +17,70 @@ const metadata = fetch('assembly-curator/assemblies.json').then(response => resp
     window.dataset = {assemblies, contigGroups, contigs}
 })
 
+class NoModalError extends Error {
+    constructor(message) {
+        super(message);
+        this.name = 'NoModalError';
+    }
+}
+
+function showModal(title, bodyHTML, listOfButtons = [["<button type=\"button\" class=\"btn btn-secondary\" data-bs-dismiss=\"modal\">Close</button>", undefined]]) {
+    // Create the modal HTML structure
+    const modalHTML = `
+    <div class="modal fade" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">${title}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    ${bodyHTML}
+                </div>
+                <div class="modal-footer">
+                    ${listOfButtons.map(button => button[0]).join('')}
+                </div>
+            </div>
+        </div>
+    </div>`;
+
+    // Append the modal to the body
+    const modalElement = document.createElement('div');
+    modalElement.innerHTML = modalHTML;
+    document.body.appendChild(modalElement);
+
+    // Initialize the modal
+    const modal = new bootstrap.Modal(modalElement.querySelector('.modal'));
+
+    // Attach event listeners to buttons
+    listOfButtons.forEach(([buttonHTML, clickHandler], index) => {
+        if (clickHandler) {
+            modalElement.querySelectorAll('.modal-footer button')[index].addEventListener('click', clickHandler);
+        }
+    });
+
+    // Show the modal
+    modal.show();
+}
+
 const toggleAllContigGroups = function (assemblyId) {
     // Determine the state of the "select all" checkbox
     const assemblyElement = document.getElementById(`cg-all-${assemblyId}`)
-    // Select all contig checkboxes related to the assembly
 
-    const contigs = assemblyElement.parentElement.parentElement.querySelectorAll('.contig');
+    // Select all contig checkboxes related to the assembly
+    const contigGroups = assemblyElement.parentElement.parentElement
+        .querySelectorAll('.contig-group');
 
     // Set the checked state of each contig checkbox based on the "select all" checkbox
-    contigs.forEach(contig => {
-        const contigName = contig.getAttribute('data-cg')
-        toggleContigGroup(contigName, !assemblyElement.checked)
+    contigGroups.forEach(contigGroup => {
+        toggleContigGroup(contigGroup.getAttribute('data-cg'), !assemblyElement.checked)
     });
 }
+document.querySelectorAll('.assembly-toggler').forEach((checkbox) => {
+    checkbox.addEventListener('change', function () {
+        toggleAllContigGroups(this.getAttribute('data-assembly'))
+    })
+})
 
 const toggleContigGroup = function (eventOrElement, isSelected = null) {
     const cg = typeof eventOrElement === 'string' ? eventOrElement : this.getAttribute('data-cg')
@@ -59,14 +111,13 @@ const toggleContigGroup = function (eventOrElement, isSelected = null) {
 }
 
 /* Get dendrogram labels */
-function aniMatrixGetDendrogramInfo() {
+function aniMatrixGetDendrogramInfo(retryCount = 10) {
     function extractData(elementId) {
         return JSON.parse(document.getElementById(elementId).textContent)
     }
 
-    function extractLabels(axisSelector) {
-        const labels = document.querySelectorAll(axisSelector);
-        return Array.from(labels).map(label => label.textContent);
+    function extractLabels(labelElements) {
+        return Array.from(labelElements).map(label => label.textContent);
     }
 
     function isIdentical(textArray1, textArray2) {
@@ -79,16 +130,21 @@ function aniMatrixGetDendrogramInfo() {
 
     const data = extractData('ani-matrix-data')
 
-    const labels1 = extractLabels('#matplotlib\\.axis_5 text')
-    const labels2 = extractLabels('#matplotlib\\.axis_6 text')
+    const labels1 = extractLabels(document.querySelector('#ani-clustermap-container #matplotlib\\.axis_5').querySelectorAll('text'))
+    const labels2 = extractLabels(document.querySelector('#ani-clustermap-container #matplotlib\\.axis_6').querySelectorAll('text'))
     if (!isIdentical(labels1, labels2)) {
-        console.error('Dendrogram label mismatch detected. The labels on both axes should be identical for accurate ' + 'representation. Please verify the input data or the label extraction logic.', {
-            axis1Labels: labels1, axis2Labels: labels2, isIdentical: isIdentical(labels1, labels2)
-        })
-        alert('The labels on the dendrogram are not identical!')
+        const debugInfo = {axis1Labels: labels1, axis2Labels: labels2, isIdentical: false}
+        if (retryCount > 0) {
+            console.warn(`Label mismatch detected. Retrying... (${retryCount} retries left)`, debugInfo);
+            setTimeout(() => aniMatrixGetDendrogramInfo(retryCount - 1), 500);
+            return;
+        } else {
+            console.error('Dendrogram label mismatch detected after retries.', debugInfo);
+            alert('The labels on the dendrogram are not identical!');
+        }
+    } else {
+        return [labels1, data]
     }
-
-    return [labels1, data]
 }
 
 function formatAsPercentage(floatNumber, decimalPlaces = 2) {
@@ -104,8 +160,9 @@ function humanBP(bp) {
 }
 
 
-function createContigGroupContent(contigGroup) {
+function createContigGroupContent(contigGroup, header) {
     const md = window.dataset.contigGroups[contigGroup]  // short for metadata
+    header = header || md.id
     const numberOfContigs = Object.keys(md.contigs).length;
     let nOrT, nOrTVal
     if (numberOfContigs === 1) {
@@ -117,7 +174,7 @@ function createContigGroupContent(contigGroup) {
     const coverage = Object.values(md.contigs).reduce((acc, contig) => acc + contig.coverage, 0)
     return `
     <div class="card">
-        <div class="card-header">${md.id}</div>
+        <div class="card-header">${header}</div>
         <ul class="list-group list-group-flush">
             <li class="list-group-item"><strong>${nOrT}</strong>: ${nOrTVal}</li>
             <li class="list-group-item"><strong>Length</strong>: ${humanBP(md.len)}</li>
@@ -167,7 +224,7 @@ function getFasta(contigGroup) {
     return fastaPromise
 }
 
-function loadDotplot(event) {
+function loadDotplot() {
     // Create a div container to hold the generated content
     const div = document.createElement('div');
 
@@ -199,6 +256,112 @@ function loadDotplot(event) {
             const table = loadPaf(paf)
             dotplot(table, document.getElementById('dotplot'), {title: "Dotplot from minimap2"})
         })
+    })
+}
+
+/**
+ * Extracts a random subsequence of a specified length from a given sequence.
+ *
+ * @param {string} sequence - The input DNA/RNA sequence.
+ * @param {number} [length=1000] - The desired length of the random subsequence (default: 1000 bp).
+ * @param {string} newHeader - An optional new FASTA header
+ * @returns {string} - A random subsequence of the specified length, or the full sequence if it is shorter than the desired length.
+ */
+function extractRandomSubsequence(fasta, length = 1000, newHeader = undefined) {
+    // Split by ">" to separate contigs, and filter out empty entries
+    const contigs = fasta.split(">").filter(entry => entry.trim() !== "")
+
+    // Select a random contig
+    const randomContig = contigs[Math.floor(Math.random() * contigs.length)]
+
+    // Split header and sequence
+    const [header, ...sequenceLines] = randomContig.split("\n")
+
+    // if newHeader is not provided, use the original header
+    if (!newHeader) newHeader = header
+
+    // Remove newlines and whitespace
+    let sequence = sequenceLines.join("").replace(/\s+/g, "")
+
+    // If the sequence is shorter than the desired length, return the whole sequence
+    if (sequence.length > length) {
+        const start = Math.floor(Math.random() * (sequence.length - length + 1))
+        sequence = sequence.slice(start, start + length)
+    }
+    return `>${newHeader}\n${sequence}`
+}
+
+function blastFasta() {
+    const contigGroup = this.dataset.contigGroup
+    const fastaPromise = getFasta(contigGroup)
+    const nBases = 1000
+    const header = `${sample}: ${contigGroup} (first ${nBases} bp)`
+    fastaPromise.then(fasta => {
+        fasta = extractRandomSubsequence(fasta, nBases, header)
+
+        /*
+        // Simply open the BLAST page with the encoded FASTA sequence:
+        const fastaEncoded = encodeURIComponent(fasta)
+        window.open(`https://blast.ncbi.nlm.nih.gov/Blast.cgi?PROGRAM=blastn&PAGE_TYPE=BlastSearch&LINK_LOC=blasthome&QUERY=${fastaEncoded}`)
+        */
+
+        // Send the FASTA sequence to the BLAST API:
+        fetch("https://blast.ncbi.nlm.nih.gov/Blast.cgi", {
+            // https://blast.ncbi.nlm.nih.gov/doc/blast-help/urlapi.html
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                CMD: "Put",
+                QUERY: fasta,
+                DATABASE: "core_nt",
+                PROGRAM: "blastn",
+                MEGABLAST: "on",
+            }).toString(),
+        }).then(response => response.text()).then(html => {
+            // Parse the HTML response
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, "text/html");
+            // Select the RID input element
+            const ridInput = doc.querySelector('input[name="RID"]');
+            if (ridInput) {
+                const rid = ridInput.value;
+                console.log("Job submitted. RID:", rid);
+                // Open the results page
+                window.open(`https://blast.ncbi.nlm.nih.gov/Blast.cgi?CMD=Get&RID=${rid}`, "_blank");
+            } else {
+                alert("Failed to submit job to NCBI BLAST. See error console for more details.");
+                console.error("Failed to submit job to NCBI BLAST.", {ridInput, rid, html});
+            }
+        })
+            .catch(error => console.error("Error:", error));
+
+        /*
+        // Send the FASTA sequence to the EBI BLAST API:
+        // Problem: Much slower than NCBI
+        fetch("https://www.ebi.ac.uk/Tools/services/rest/ncbiblast/run/", {
+            // https://www.ebi.ac.uk/Tools/services/rest/ncbiblast/parameters
+            method: "POST",
+            headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                "sequence": fasta,
+                "stype": "dna",
+                "database": "em_pro",
+                "program": "blastn",
+                "task": "megablast",
+                "email": "suranj@ebi.ac.uk",
+                "title": header
+            }).toString()
+        })
+            .then(response => response.text()).then((jobId) => {
+            console.log("Job submitted. Job ID:", jobId)
+            window.open(`https://www.ebi.ac.uk/jdispatcher/sss/ncbiblast/summary?jobId=${jobId}`, "_blank");
+        })
+            .catch(error => console.error("Error:", error))
+        */
     })
 }
 
@@ -257,11 +420,13 @@ function aniMatrixInitPopover(dendrogramLabels, dendrogramData) {
         const similarity = dendrogramData[labelCol][labelRow]
         let content = ''
         if (labelCol === labelRow) {
-            content += createContigGroupContent(labelCol)
+            content += createContigGroupContent(labelCol) + '<br>'
+            content += `
+            <button type="button" class="btn btn-primary blast-button" data-contig-group="${labelCol}">Blast 1000bp</button>`
         } else {
             content += `Similarity: <strong>${similarity}</strong><br>`
-            content += createContigGroupContent(labelCol) + '<br>'
-            content += createContigGroupContent(labelRow) + '<br>'
+            content += createContigGroupContent(labelCol, `Col: ${labelCol}`) + '<br>'
+            content += createContigGroupContent(labelRow, `Row: ${labelRow}`) + '<br>'
         }
         // add button to create dotplot
         content += `
@@ -298,6 +463,10 @@ function aniMatrixInitPopover(dendrogramLabels, dendrogramData) {
             document.querySelectorAll('.dotplot-button').forEach(button => {
                 button.removeEventListener('click', loadDotplot); // Ensure no duplicate listeners
                 button.addEventListener('click', loadDotplot);
+            });
+            document.querySelectorAll('.blast-button').forEach(button => {
+                button.removeEventListener('click', blastFasta); // Ensure no duplicate listeners
+                button.addEventListener('click', blastFasta);
             });
         });
 
@@ -437,10 +606,11 @@ function gfavizInitPopover() {
                 return
             }
 
-            const contigGroupId = window.dataset.contigs[contigId].contig_group
+            const contigGroupData = window.dataset.contigs[contigId]
+            const contigGroupId = contigGroupData.contig_group
 
             // set stroke to cluster color
-            textElement.style.stroke = sampleToCluster[contigGroupId] ? sampleToCluster[contigGroupId].color : 'gray'
+            textElement.style.stroke = contigGroupData.cluster_color_rgb
 
             // set class contig and contig-<contig>
             textElement.classList.add('contig-group');
@@ -510,7 +680,7 @@ function aniMatrixDeactivateAnnotations() {
 // click on #btn-curate will send the selected contigs to the server (/curate)
 document.getElementById('btn-export').addEventListener('click', function () {
     const payload = {
-        sample: document.getElementById('sample').textContent,
+        sample: sample,
         contigs: Array.from(document.querySelectorAll('#row-contigs .contig-group.selected')).map(contig => contig.getAttribute('data-cg')),
     }
 
@@ -533,8 +703,13 @@ document.getElementById('btn-export').addEventListener('click', function () {
 })
 
 function fetchAndReplace(imgElement) {
-    /* Replace <img src=...> with fetched SVG so it can be made interactive */
     const src = imgElement.getAttribute('src');
+
+    if (!imgElement.complete || imgElement.naturalWidth === 0) {
+        console.info(`Not replacing ${src} with SVG because it does not exist.`);
+        return
+    }
+    /* Replace <img src=...> with fetched SVG so it can be made interactive */
     return fetch(src).then(response => response.text()).then(svg => {
         const div = document.createElement('div');
         div.innerHTML = svg;
@@ -612,7 +787,6 @@ function activateAniZoom() {
     // Function to adjust the SVG width based on scale
     function adjustSVGWidth() {
         const svg = container.querySelector('svg') || container.querySelector('img')
-        console.log(svg)
         svg.style.width = `${scale * 100}%`;
     }
 
@@ -644,15 +818,209 @@ function activateAniZoom() {
     });
 }
 
+function extractHeaders(fastaContent) {
+    // Split the content by newlines
+    const lines = fastaContent.split('\n');
+
+    // Initialize the dictionary to store the headers and their metadata
+    const headersDict = {};
+
+    // Filter lines that start with ">"
+    const headers = lines.filter(line => line.startsWith('>'));
+
+    // Loop over the headers and extract metadata
+    headers.forEach(header => {
+        // Extract the identifier (e.g., "FAM2878-p1-1_scf1")
+        const identifier = header.split(' ')[0].substring(1);
+
+        // Extract the metadata (e.g., "length=2498046", "topology=circular", ...)
+        const metadata = header.match(/\[([^\]]+)\]/g).reduce((acc, item) => {
+            const [key, value] = item.slice(1, -1).split('=');
+            acc[key] = value;
+            return acc;
+        }, {});
+
+        // Store the metadata in the dictionary
+        headersDict[identifier] = metadata;
+    });
+
+    return headersDict;
+}
+
+function cssEscape(str) {
+    return str.replace(/([ #;?%&,.+*~\':"!^$[\]()=>|\/@])/g, '\\$1');
+}
+
+function selectBasedOnHybridFasta() {
+    fetch('./assembly-curator/hybrid.fasta')
+        .then(response => {
+            if (response.ok) {
+                console.info('attempting to select contigs based on hybrid.fasta...');
+                return response.text();
+            } else {
+                console.info('hybrid.fasta does not exist.');
+                return Promise.reject('File not found');
+            }
+        })
+        .then(fastaContent => {
+            const headersDict = extractHeaders(fastaContent)
+            const rowContigsElement = document.getElementById('row-contigs');
+            Object.entries(headersDict).forEach(([identifier, dataDict]) => {
+                const [assembler, contigId] = [dataDict['assembler'], dataDict['old-id']]
+                const contigAssId = `${assembler}@${contigId}`
+                const matchingElements = rowContigsElement.querySelector(`.${cssEscape(contigAssId)}`)
+                if (!matchingElements) {
+                    const message = `Contig ${contigAssId} not found in the table.`
+                    document.querySelector('.error-container')
+                        .innerHTML += `<div class="alert alert-danger" role="alert">${message}</div>`
+                    return
+                }
+                const contigGroup = matchingElements.closest('[data-cg]').getAttribute('data-cg')
+                toggleContigGroup(contigGroup, false)
+            })
+        })
+        .catch(error => {
+            if (error !== 'File not found') {
+                console.error('Error fetching hybrid.fasta:', error);
+            }
+        });
+}
+
+function writeFile(targetFile, content) {
+    return fetch(targetFile, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'text/plain',
+        },
+        body: content,
+    })
+}
+
+function loadNoteMd() {
+    let noteContainer = document.querySelector('.note-container');
+    if (!noteContainer) {
+        const firstH1 = document.querySelector('h1');
+        if (firstH1) {
+            noteContainer = document.createElement('div');
+            noteContainer.classList.add('note-container', 'container');
+            firstH1.parentNode.insertBefore(noteContainer, firstH1.nextSibling);
+        } else {
+            console.error("No <h1> element found to insert the note container.");
+            return;
+        }
+    }
+    noteContainer.innerHTML = '';  // Empty the noteContainer
+
+    // Style the note-container to center its content
+    noteContainer.style.display = 'flex';
+    noteContainer.style.justifyContent = 'center';
+
+    fetch('./note.md')
+        .then(function (response) {
+            if (!response.ok) {
+                const button = document.createElement('button');
+                button.classList.add('btn', 'btn-secondary');
+                button.title = 'add note.md';
+                button.innerHTML = '<i class="bi bi-pencil-square"></i>';
+                button.addEventListener('click', function () {
+                    writeFile('./note.md', '### Empty note\n').then(() => {
+                        loadNoteMd();
+                    })
+                        .catch(() => {
+                            showModal('Error', `<p>Failed to write to <code>./note.md</code>.</p>`);
+                        })
+                    button.remove();
+                });
+                document.querySelector('h1>.btn-group').appendChild(button);
+                throw new NoModalError('note.md not found');
+            }
+            return response.text();
+        })
+        .then(function (markdownText) {
+            // Convert the Markdown to HTML using Snarkdown
+            const htmlContent = snarkdown(markdownText);
+
+            // Create a Bootstrap card
+            const card = document.createElement('div');
+            card.classList.add('card', 'text-bg-warning');
+            card.style.textAlign = 'left'; // Align text to the left
+            card.style.width = 'max-content'; // Set card width to max-content
+            card.style.minWidth = '15rem';
+
+            const cardHeader = document.createElement('div');
+            cardHeader.classList.add('card-header');
+            cardHeader.textContent = 'note.md';
+
+            const cardBody = document.createElement('div');
+            cardBody.classList.add('card-body');
+
+            const cardContent = document.createElement('div');
+            cardContent.innerHTML = htmlContent;
+
+            const editButton = document.createElement('button');
+            editButton.classList.add('btn', 'btn-primary', 'mt-3');
+            editButton.textContent = 'Edit';
+            editButton.type = 'button';
+
+            // Append cardContent before adding functionality
+            cardBody.appendChild(cardContent);
+
+            function createTextarea() {
+                const textarea = document.createElement('textarea');
+                textarea.classList.add('form-control', 'mt-3'); // Bootstrap styling
+                textarea.value = markdownText; // Populate with original Markdown
+                textarea.style.resize = 'both';
+                textarea.style.minHeight = '10rem';
+                cardBody.replaceChild(textarea, cardContent);
+
+                // Change the button text to "Save"
+                editButton.textContent = 'Save';
+
+                // Change the button's behavior to save the edited content
+                editButton.removeEventListener('click', createTextarea);
+                editButton.addEventListener('click', function () {
+                    writeFile('./note.md', textarea.value)
+                        .then(() => {
+                            // Empty noteContainer
+                            noteContainer.innerHTML = '';
+                            // Reload the note.md file
+                            loadNoteMd();
+                        })
+                        .catch(() => {
+                            showModal('Error', `<p>Failed to write to <code>./note.md</code>.</p>`);
+                        });
+                });
+            }
+
+            editButton.addEventListener('click', createTextarea);
+
+            // Assemble the card
+            cardBody.appendChild(editButton);
+            card.appendChild(cardHeader);
+            card.appendChild(cardBody);
+
+            // Append the card to the noteContainer
+            noteContainer.appendChild(card);
+        })
+        .catch(function (error) {
+            if (error instanceof NoModalError) {
+                console.info(error.message);
+            } else {
+                showModal('Error', `<p>Failed to load or render <code>./note.md</code>.</p>`);
+            }
+        });
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     try {
         activateAniZoom();
     } catch (error) {
-        // Handle the error (optional)
-        console.error('activateAniZoom failed, but continuing execution:', error);
+        console.error('activateAniZoom failed, but continuing execution.', error);
     }
     toggleContigGroupTable()
     toggleDotPlotTabs()
+
+    loadNoteMd()
 
     metadata.then(() => {
         fetchAndReplace(document.getElementById('ani-matrix-svg')).then(() => {
@@ -661,13 +1029,18 @@ document.addEventListener('DOMContentLoaded', function () {
             aniMatrixInitPopover(dendrogramLabels, dendrogramData);
         })
 
-        Promise.all(Array.from(document.querySelectorAll('.gfaviz-svg')).map(fetchAndReplace)).then(() => {
+        const replaceGfaviz = Promise.all(Array.from(document.querySelectorAll('.gfaviz-svg')).map(fetchAndReplace)).then(() => {
             gfavizInitPopover();
         });
 
-        Promise.all(Array.from(document.querySelectorAll('.dotplot-svg')).map(fetchAndReplace)).then(() => {
+        const replaceDotplots = Promise.all(Array.from(document.querySelectorAll('.dotplot-svg')).map(fetchAndReplace)).then(() => {
             dotplotsInitPopover()
         })
+
+        Promise.all([replaceGfaviz, replaceDotplots]).then(() => {
+            // if hybrid.fasta exists, select the chosen ContigGroups using toggleContigGroup
+            selectBasedOnHybridFasta()
+        });
     });
 
     document.querySelectorAll('.assembly-atgc').forEach(addATGCgradient);

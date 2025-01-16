@@ -1,5 +1,6 @@
 import logging
 import os.path
+from glob import glob
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -33,8 +34,12 @@ class AssemblyImporter(ABC):
         return self.__class__.__name__
 
     def load_fasta(self, fasta: str) -> {str: Contig}:
-        if not os.path.isfile(fasta):
-            raise AssemblyFailedException(f'{self.name}: FASTA file {fasta} does not exist')
+        matches = glob(fasta)
+        if len(matches) != 1:
+            raise AssemblyFailedException(
+                f'{self.name}: Expected exactly one match for {fasta=}, but found {len(matches)}')
+        fasta = matches[0]
+
         with open(fasta) as f:
             data = f.read().strip()
         if not data:

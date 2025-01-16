@@ -73,7 +73,6 @@ def calculate_phylogenetic_tree(
         samples_dir: str,
         force_rerun: bool = False
 ):
-    force_rerun = True
     similarity_matrix_file = os.path.join(samples_dir, 'similarity_matrix.tsv')
     similarity_matrix_plot = os.path.join(samples_dir, 'similarity_matrix.svg')
     similarity_matrix_plot_order = os.path.join(samples_dir, 'similarity_matrix.json')
@@ -86,10 +85,9 @@ def calculate_phylogenetic_tree(
             samples_sorted = json.load(f)
         return samples_sorted
 
-    # similarity_matrix = calculate_similarity_matrix(samples_dir, importers)
-    similarity_matrix = pd.read_csv(similarity_matrix_file, sep='\t', index_col=0)
-
-    # similarity_matrix.to_csv(similarity_matrix_file, sep='\t')
+    similarity_matrix = calculate_similarity_matrix(samples_dir, importers)
+    # similarity_matrix = pd.read_csv(similarity_matrix_file, sep='\t', index_col=0)
+    similarity_matrix.to_csv(similarity_matrix_file, sep='\t')
 
     low_score = similarity_matrix[similarity_matrix > 0].min().min()
     similarity_matrix.replace(0, max(0, low_score - 0.02), inplace=True)

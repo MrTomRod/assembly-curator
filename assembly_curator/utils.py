@@ -1,5 +1,6 @@
 # Plugin system inspired by https://gist.github.com/dorneanu/cce1cd6711969d581873a88e0257e312
 import os
+import sys
 import logging
 import subprocess
 import multiprocessing
@@ -55,6 +56,8 @@ def load_importers(plugins_dir: str) -> List[Type['AssemblyImporter']]:
     if _importers is not None:
         return _importers
 
+    sys.path.insert(0, os.path.abspath(plugins_dir))
+
     _importers = []
     for file_name in os.listdir(plugins_dir):
         if file_name.endswith('Importer.py') and not file_name.startswith('.') and not file_name.startswith('__'):
@@ -78,8 +81,8 @@ def load_get_custom_html(plugins_dir: str) -> Callable:
 
     if not os.path.isfile(file_path):
         logging.info(f"No get_custom_html.py found in {plugins_dir}, skipping.")
-        # default: simply write return name of the sample
-        return lambda sample: sample
+        # default: nothing
+        return lambda sample: ''
 
     try:
         # Load the function get_custom_html from the file

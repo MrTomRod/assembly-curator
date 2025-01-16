@@ -230,11 +230,13 @@ Len Aln: ${d.lenAln}`),
             title: xtitle,
             tickvals: tickvalsRef,
             ticktext: tickvalsRef.map(() => ''),
+            range: [0, table.contigToOffsetRef.get('__end__')]
         },
         yaxis: {
             title: ytitle,
             tickvals: tickvalsQry,
             ticktext: tickvalsQry.map(() => ''),
+            range: [0, table.contigToOffsetQry.get('__end__')]
         },
         hovermode: 'closest',
         showlegend: false,

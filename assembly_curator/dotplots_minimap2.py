@@ -45,6 +45,8 @@ def parse_minimap_output(minimap_output):
                "numResidueMatches", "lenAln", "mapQ", "alnType"]
 
     # Read the minimap output into a pandas DataFrame
+    if os.stat(minimap_output).st_size==0:
+        return pd.DataFrame(columns=columns)
     df = pd.read_csv(minimap_output, sep='\t', header=None)
 
     # Remove the columns that are not needed
@@ -169,12 +171,6 @@ def create_dotplots(
         figsize: (int, int) = (10, 10),
         title: str = None,
         output: str = 'dotplots.png',
-        # todo: what is this?
-        kmer=12,
-        bp_per_pixel: float = 17.651,
-        background_colour='white',
-        color_fwd='mediumblue', color_rev='firebrick',
-        line_color='black',
         params=None
 ):
     if params is None:

@@ -23,21 +23,21 @@ def ani_clustermap(assemblies: [Assembly], fname: str, cutoff: float = .9) -> (p
     similarity_matrix = calculate_similarity_matrix(assemblies)
 
     length_matrix = calculate_length_matrix(similarity_matrix, assemblies, label_cutoff=cutoff)
-    sample_to_cluster = plot_clustermap(
+
+    cluster_to_color, cg_to_cluster = plot_clustermap(
         similarity_matrix,
         annot=length_matrix, annot_kws={"fontsize": 6}, fmt='',
         vmin=cutoff, vmax=1,
         fname=fname
     )
-    return similarity_matrix, sample_to_cluster
+    return similarity_matrix, cluster_to_color, cg_to_cluster
 
 
-def add_cluster_info_to_assemblies(assemblies, sample_to_cluster):
+def add_cluster_info_to_assemblies(assemblies, cluster_to_color, cg_to_cluster):
     for assembly in assemblies:
         for contig_group in assembly.contig_groups:
-            cluster_info = sample_to_cluster[contig_group.id]
-            contig_group.cluster_id = cluster_info['cluster']
-            contig_group.set_cluster_color(*cluster_info['color'])
+            contig_group.cluster_id = cg_to_cluster[contig_group.id]
+            contig_group.set_cluster_color(*cluster_to_color[cg_to_cluster[contig_group.id]])
 
 
 def calculate_length_matrix(
@@ -99,8 +99,8 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, fname: str, **kwargs) -> (s
     # Compute the linkage matrix manually so it can be returned
     linkage_matrix = sch.linkage(similarity_matrix, method='average')
 
-    sample_to_cluster = group_by_linkage(similarity_matrix, linkage_matrix)
-    row_col_colors = [sample_to_cluster[cg]['color'] for cg in similarity_matrix.index]
+    cluster_to_color, cg_to_cluster = group_by_linkage(similarity_matrix, linkage_matrix)
+    row_col_colors = [cluster_to_color[cg_to_cluster[cg]] for cg in similarity_matrix.index]
 
     # Generate the clustermap
     clustermap_fig = sns.clustermap(
@@ -123,6 +123,9 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, fname: str, **kwargs) -> (s
     svg_content = svg_buffer.getvalue()
     svg_buffer.close()
 
+    # reorder cluster_to_color to match order in clustermap_fig.data2d.columns
+    cluster_to_color = {cg_to_cluster[cg]: cluster_to_color[cg_to_cluster[cg]] for cg in clustermap_fig.data2d.columns}
+
     # Convert to JSON, add to SVG
     json_data = similarity_matrix.to_json()  # Reordering not necessary because json uses keys, not order
     svg_content = svg_content.rsplit('</svg>', 1)
@@ -132,16 +135,18 @@ def plot_clustermap(similarity_matrix: pd.DataFrame, fname: str, **kwargs) -> (s
     with open(fname, 'w') as f:
         f.write(svg_content)
 
-    return sample_to_cluster
+    return cluster_to_color, cg_to_cluster
 
 
 def group_by_linkage(similarity_matrix, linkage_matrix: np.ndarray, threshold: float = .95) -> {int: [str]}:
     """Form flat clusters based on threshold"""
-    cluster_group = sch.fcluster(linkage_matrix, t=threshold, criterion='distance')
-    cluster_colors = sns.color_palette('Set2', n_colors=len(set(cluster_group)))
+    # create contig_group -> cluster mapping
+    cluster_ids = sch.fcluster(linkage_matrix, t=threshold, criterion='distance')
+    cg_to_cluster = {contig_group: f'cluster{cluster_id}'
+                     for contig_group, cluster_id in zip(similarity_matrix.index, cluster_ids)}
 
-    return {
-        i: {'cluster': int(g), 'color': cluster_colors[int(g) - 1]}
-        for i, g
-        in zip(similarity_matrix.index, cluster_group)
-    }
+    # create cluster -> color mapping
+    cluster_colors = sns.color_palette('Set2', n_colors=len(set(cluster_ids)))
+    cluster_to_color = {f'cluster{i}': color for i, color in enumerate(cluster_colors, start=1)}
+
+    return cluster_to_color, cg_to_cluster

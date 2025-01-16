@@ -1,7 +1,8 @@
 import os
+import sys
 import shutil
-import json
 import logging
+from glob import glob
 from typing import List, Type
 
 import socket
@@ -9,12 +10,11 @@ import socket
 from assembly_curator.phylogenetic_tree import calculate_phylogenetic_tree
 
 socket.setdefaulttimeout(1000)  # seconds
-from werkzeug.serving import WSGIRequestHandler
 
 import dill
-from flask import Flask, send_from_directory, render_template, redirect, request, jsonify
-from pywebio.input import input, FLOAT, SELECT
+from flask import Flask, send_from_directory, redirect, request, jsonify, abort
 from pywebio.output import put_text, put_html
+from pywebio.input import select, SELECT
 from pywebio.platform.flask import webio_view
 from pywebio.session import eval_js
 
@@ -38,7 +38,8 @@ from jinja2 import Environment, PackageLoader, select_autoescape
 
 env = Environment(
     loader=PackageLoader('assembly_curator', 'templates'),
-    autoescape=select_autoescape(['html'])
+    autoescape=select_autoescape(['html']),
+    cache_size=0 if '--debug' in sys.argv else -1
 )
 
 app = Flask(__name__)
@@ -56,20 +57,28 @@ pywebio_html = """
 
 
 def get_status(path):
+    try:
+        with open(os.path.join(samples_directory, path, 'note.md')) as f:
+            note = f.read()
+    except FileNotFoundError:
+        note = None
+
     res = {
         'name': path,
-        'custom_html': get_custom_html(path)
+        'custom_html': get_custom_html(path),
+        'note': note
     }
+
     try:
         files = os.listdir(os.path.join(samples_directory, path, 'assembly-curator'))
     except FileNotFoundError:
         return res | {'status': 'not started', 'btn_cls': 'secondary', 'icon': 'bi-pause-circle'}
     if 'hybrid.fasta' in files:
         return res | {'status': 'finished', 'btn_cls': 'success', 'icon': 'bi-check-circle'}
-    elif 'assemblies.pkl' in files:
-        return res | {'status': 'preprocessed', 'btn_cls': 'primary', 'icon': 'bi-play-circle'}
     elif 'failed' in files:
         return res | {'status': 'failed', 'btn_cls': 'danger', 'icon': 'bi-x-circle'}
+    elif 'assemblies.pkl' in files:
+        return res | {'status': 'preprocessed', 'btn_cls': 'primary', 'icon': 'bi-play-circle'}
     else:
         return res | {'status': 'processing', 'btn_cls': 'warning', 'icon': 'bi-hourglass-split'}
 
@@ -106,16 +115,14 @@ def list_directory(samples_directory, rel_path, is_root=False):
 
 @app.route('/')
 def serve_root():
-    print('>>>>>>>>>>>>>>> serving overview')
-
-    folders, files, links = list_directory(samples_directory, '.', is_root=True)
+    dirs, files, links = list_directory(samples_directory, '.', is_root=True)
 
     calculate_tree = True
     if calculate_tree:
         samples = calculate_phylogenetic_tree(importers, samples_directory, force_rerun=False)
-        folders = [f for f in folders if f not in samples]
+        folders = [f for f in dirs if f not in samples]
     else:
-        samples, folders = folders, []
+        samples, folders = dirs, []
 
     samples = [get_status(path) for path in samples]
 
@@ -131,7 +138,6 @@ def serve_root():
 
 
 def process_assembly(sample, sample_dir):
-    print(f'>>>>>>>>>>>>>>> processing assembly {sample}')
     assemblies = process_sample(sample, sample_dir, importers)
 
     if not assemblies:
@@ -148,8 +154,6 @@ def serve_assembly(samples_directory, sample):
 
     if not os.path.isfile(f"{sample_dir}/assembly-curator/assemblies.pkl"):
         process_assembly(sample, sample_dir)
-    else:
-        print(f'>>>>>>>>>>>>>>> serving assembly {sample}')
 
     return send_from_directory(
         directory=os.path.abspath(sample_dir),
@@ -161,7 +165,6 @@ def serve_assembly(samples_directory, sample):
 def reset_sample():
     sample_name = request.json.get('sample_name')
     path = os.path.join(samples_directory, sample_name, 'assembly-curator')
-    print(f'>>>>>>>>>>>>>>> Resetting {sample_name} ({path})')
 
     if os.path.isdir(path):
         shutil.rmtree(path)
@@ -171,7 +174,6 @@ def reset_sample():
 
 @app.route('/reset_all_samples', methods=['GET', 'POST'])
 def reset_all_samples():
-    print('>>>>>>>>>>>>>>> Resetting all samples')
     samples, _, _ = list_directory(samples_directory, '.', is_root=True)
     samples = [get_status(path) for path in samples]
 
@@ -186,7 +188,6 @@ def reset_all_samples():
 
 @app.route('/dispatch_all_not_started_samples', methods=['POST'])
 def dispatch_all_not_started_samples():
-    print('>>>>>>>>>>>>>>> Dispatching all not started samples')
     samples, _, _ = list_directory(samples_directory, '.', is_root=True)
     samples = [get_status(path) for path in samples]
 
@@ -197,9 +198,59 @@ def dispatch_all_not_started_samples():
     return jsonify({'status': 'success'}), 200
 
 
-@app.route('/<path:filepath>')
+@app.route('/get_status', methods=['POST'])
+def get_status_endpoint():
+    sample_name = request.json.get('sample_name')
+    if not sample_name:
+        return jsonify({"error": "sample_name parameter is required"}), 400
+    # Call the get_status function and get the result
+    status = get_status(sample_name)
+    return jsonify(status)
+
+
+@app.route('/toggle_failed', methods=['POST'])
+def toggle_failed():
+    sample_name = request.json.get('sample_name')
+    if not sample_name:
+        return jsonify({"error": "sample_name parameter is required"}), 400
+    sample_dir = os.path.join(samples_directory, sample_name)
+    failed_file = f"{sample_dir}/assembly-curator/failed"
+    hybrid_file = f"{sample_dir}/assembly-curator/hybrid.fasta"
+    if os.path.isfile(failed_file):
+        os.remove(failed_file)
+    else:
+        try:
+            os.remove(hybrid_file)
+        except FileNotFoundError:
+            pass
+        with open(failed_file, 'w') as f:
+            f.write('Assembly failed.')
+    return jsonify({'status': 'success'}), 200
+
+
+@app.route('/<path:filepath>', methods=['PUT'])
+def put_path(filepath):
+    full_path = os.path.abspath(os.path.join(samples_directory, filepath))
+    dirname, basename = os.path.dirname(full_path), os.path.basename(full_path)
+    if not os.path.exists(dirname):
+        logging.warning(f"Directory {dirname} does not exist, cannot write {full_path}")
+        return abort(404)
+
+    data = request.data.decode()
+    if data:
+        with open(full_path, 'w') as f:
+            f.write(request.data.decode())
+    else:
+        os.remove(full_path)
+
+    return jsonify({
+        'status': 'success',
+        'message': f'Wrote {full_path}' if data else f'Deleted {full_path}'}
+    ), 200
+
+
+@app.route('/<path:filepath>', methods=['GET'])
 def serve_path(filepath):
-    print(f">>>>>>>>>>>>>>> Requested {filepath}")
     full_path = os.path.abspath(os.path.join(samples_directory, filepath))
     dirname, basename = os.path.dirname(full_path), os.path.basename(full_path)
     action = request.args.get('action', 'auto')
@@ -209,8 +260,23 @@ def serve_path(filepath):
         sample = os.path.basename(dirname)
         return serve_assembly(samples_directory, sample)
 
+    # If the path does not exist, try to use glob to get a path
+    if not os.path.exists(full_path):
+        _globresult = glob(full_path)
+        if len(_globresult) == 1:
+            full_path = _globresult[0]
+            dirname, basename = os.path.dirname(full_path), os.path.basename(full_path)
+        else:
+            logging.warning(f"Path {full_path} does not exist")
+            return abort(404)
+
     # Serve files
     if os.path.isfile(full_path):
+        # Special case for favicon
+        if filepath == 'favicon.ico':
+            # return assembly_curator/templates/assembly-curator.webp
+            return send_from_directory('templates', 'assembly-curator.webp')
+
         extension = full_path.rsplit('.', 1)[-1]
         mimetype, as_attachment = None, False
 
@@ -222,13 +288,6 @@ def serve_path(filepath):
         elif action == 'download':
             as_attachment = True
 
-        print(full_path, as_attachment, mimetype)
-
-        # Special case for favicon
-        if filepath == 'favicon.ico':
-            # return assembly_curator/templates/assembly-curator.webp
-            return send_from_directory('templates', 'assembly-curator.webp')
-
         return send_from_directory(dirname, basename, as_attachment=as_attachment, mimetype=mimetype)
 
     # Serve directories
@@ -238,7 +297,8 @@ def serve_path(filepath):
         return list_directory(samples_directory, filepath)
 
     else:
-        return "404 Not Found :(", 404
+        logging.warning(f"Path {full_path} is not a file or directory")
+        return abort(404)
 
 
 # PyWebIO application function
@@ -246,7 +306,6 @@ def pywebio_export():
     put_html(pywebio_html)
 
     url = eval_js('window.location.href')
-    print('URL:', url)
     # get sample and contig_groups from URL
     params = parse_qs(urlparse(url).query)
     sample = params.get('sample', [None])[0]
@@ -259,7 +318,7 @@ def pywebio_export():
         return
 
     contig_groups = contig_groups.split(',')
-    put_text(f">>>>>>>>>>>>>>> Curating {sample} with {len(contig_groups)} contig groups")
+    put_text(f"Curating {sample} with {len(contig_groups)} contig groups...")
 
     sample_dir = os.path.join(samples_directory, sample)
     assert os.path.isfile(f"{sample_dir}/assembly-curator/assemblies.pkl")
@@ -277,6 +336,16 @@ def pywebio_export():
     # sort by length
     contig_groups.sort(key=lambda cg: len(cg), reverse=True)
     headers = create_headers(sample, contig_groups)
+
+    # show warning if multiple chromosome contigs
+    n_chromosomes = [cg.location for cg in contig_groups].count('chromosome')
+
+    if n_chromosomes != 1:
+        if select(f'Warning: {n_chromosomes} contig groups were marked as chromosome. Continue?',
+                  type=SELECT, options=['Yes', 'No']) == 'No':
+            put_text("Aborting.")
+            return
+
     export(f"{sample_dir}/assembly-curator/hybrid.fasta", headers)
 
 
