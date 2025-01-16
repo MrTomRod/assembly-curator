@@ -33,32 +33,7 @@ Trycycler offer a solution but require complex workflows and extensive processin
 
 ### 1. Download Test Data
 
-```bash
-wget https://.../assembly-curator-test-data.tar.xz  # Todo
-tar -xvf assembly-curator-test-data.tar.xz
-```
-
-### 2. Pull Docker Image
-
-```bash
-docker pull troder/assembler-curator
-```
-
-### 3. Run Assembly Curator
-
-```bash
-docker run -it --rm \
--v ./data-share:/data:Z \
--v ./plugins-share:/plugins:Z \
--p 8080:8080 \
---name assembly-curator \
-troder/assembly-curator
-```
-
-### 4. Access the Interface
-
-Open your browser and navigate to:  
-`http://localhost:8080`
+See [QuickStart.md](QuickStart.md) for instructions on downloading test data.
 
 ## 📊 Core Workflow
 
