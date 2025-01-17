@@ -31,8 +31,6 @@ Trycycler offer a solution but require complex workflows and extensive processin
 
 ## 🛠️ Quick Start
 
-### 1. Download Test Data
-
 See [QuickStart.md](QuickStart.md) for instructions on downloading test data.
 
 ## 📊 Core Workflow
