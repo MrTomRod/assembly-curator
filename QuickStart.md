@@ -10,7 +10,7 @@ tar -xvf assembly-curator-test-data.tar.xz
 ## 2. Pull Docker Image
 
 ```bash
-docker pull troder/assembler-curator
+docker pull troder/assembly-curator
 ```
 
 ## 3. Run Assembly Curator
