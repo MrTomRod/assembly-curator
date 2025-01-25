@@ -2,6 +2,10 @@
 
 **Quickly generate consensus assemblies for bacterial genomes**
 
+<img src="media/imagined-assembly-curator.webp" style="max-width: 500px">
+
+<sub><em>_This is what an assembly curator looks like, at least according to OpenAI's DALL·E._</em></sub>
+
 ## 🚀 Overview
 
 **Assembly Curator** is a semi-automated genome assembly curation tool designed to simplify and accelerate the creation
@@ -41,6 +45,9 @@ See [QuickStart.md](QuickStart.md) for instructions on downloading test data.
 
 ## 🔌 Plugin System
 
+> [!CAUTION]
+> Danger: work in progress, will be refactored
+
 Add support for custom assemblers via Python-based plugins:
 
 ```python
@@ -70,9 +77,3 @@ class FlyeImporter1(AssemblyImporter):
 - [Minimap2](https://github.com/lh3/minimap2)
 - [Pyskani](https://github.com/althonos/pyskani)
 - [Plotly](https://plotly.com/)
-
-## ✨ Future Development
-
-- Enhanced scalability for large datasets.
-- Advanced visualization options.
-- Community-driven plugin contributions.
