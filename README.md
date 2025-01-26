@@ -1,12 +1,16 @@
-# 🧬 Assembly Curator
-
-**Quickly generate consensus assemblies for bacterial genomes**
-
-<br>
-
-<img src="media/imagined-assembly-curator.webp" width="500">
-
-<sub><em>This is what an assembly curator looks like, at least according to OpenAI's DALL·E.</em></sub>
+<p align="center">
+    <img src="media/icon-assembly-curator.svg" alt="Logo" width=170>
+    <h1 align="center">Assembly Curator</h1>
+</p>
+<p align="center">
+    <b>Quickly generate consensus assemblies for bacterial genomes</b>
+</p>
+<p align="center">
+    <img src="media/imagined-assembly-curator.webp" width=500>
+</p>
+<p align="center">
+    <sub><em>This is what an assembly curator looks like, at least according to OpenAI's DALL·E.</em></sub>
+</p>
 
 ## 🚀 Overview
 
