@@ -21,6 +21,7 @@ dependencies = [
     "flask>=3.0.3",
     "dill>=0.3.8",
     "huey>=2.5.1",
+    "dnaapler>=1.1.0",
 ]
 
 [build-system]
