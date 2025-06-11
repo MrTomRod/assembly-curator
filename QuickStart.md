@@ -33,10 +33,17 @@ Open your browser and navigate to:
 
 This page shows the content of the `/data` directory. Each sample to be assembled has its own directory.
 
-- **View files**: Click on **1** to view files inside a directory.
-- **Start curating a genome**: Click on **2** to start curating a genome. This process may take a minute.
-- **Parallel preprocessing**: Click on **4** to start parallel preprocessing of samples in the background.
-- **Reset a sample**: Click on **3** to reset a sample.
+- **Phylogenetic tree**: [Pyskani](https://github.com/althonos/pyskani)-based tree of the samples (**1**).
+- **View files**: Click on **2** to view files inside a directory.
+- **Curate a genome**: Click on **3** to start curating a genome. This process may take a minute. **3** indicates the status of a sample:
+  - Grey: Sample has not been preprocessed yet.
+  - Blue: Sample is preprocessed and ready for curation.
+  - Green: Curation complete.
+- **Sample name**: **4**.
+- **Notes**: Yellow indicates that there is a note attached to the sample (**5**).
+- **Reset a sample**: Click on **6** to reset a sample.
+- **Parallel preprocessing**: Click on **7** to start parallel preprocessing of samples in the background.
+
 
 > **Tip:** Reload the page to see the progress of preprocessing.
 
